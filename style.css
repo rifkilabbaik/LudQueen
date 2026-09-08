@@ -1,10 +1,12 @@
 /* =========================================================================
    LUDQueen 👑 — style.css
    Tema: Medieval Pixel Art
-   Catatan aset: setiap bidak memakai class `.piece-art.piece-<faksi>`.
-   Untuk memasang pixel art sungguhan cukup timpa class tersebut dengan
-   `background-image:url(...)` lalu sembunyikan emoji placeholder
-   (`.piece-art.has-sprite { font-size:0 }`).
+
+   Catatan aset: bidak & avatar memakai class `.piece-art.piece-<faksi>`.
+   Sprite-nya digambar sebagai pixel art SVG dari `SPRITES` di script.js dan
+   dipasang lewat `background-image`. Untuk memakai file PNG sungguhan cukup
+   timpa class tersebut, mis:
+       .piece-knight { background-image:url('assets/knight.png') !important; }
    ========================================================================= */
 
 /* ---------------- 0. TOKEN & RESET ---------------- */
@@ -23,10 +25,9 @@
   --ink-2:#3d2b52;
   --gold:#f0c04a;
   --frame:#f0a878;
+  --bone:#fdf6e3;
 
-  --cell: calc(100% / 15);
-  --piece-size: 6.4%;
-
+  --piece-size: 7.4%;
   --font: 'Press Start 2P', 'Courier New', monospace;
 }
 
@@ -42,7 +43,6 @@ body{
     radial-gradient(circle at 80% 85%, #2d4a52 0%, transparent 55%),
     var(--ink);
   -webkit-font-smoothing:none;
-  image-rendering:pixelated;
   overflow:hidden;
   touch-action:manipulation;
 }
@@ -50,6 +50,16 @@ body{
 button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
 h1,h2,h3,p,ul{ margin:0; }
 ul{ list-style:none; padding:0; }
+
+/* semua sprite pixel art dirender tajam */
+.piece-art{
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  display:inline-block;
+}
 
 /* ---------------- 1. SCREEN SYSTEM ---------------- */
 #app{ position:relative; width:100%; height:100dvh; overflow:hidden; }
@@ -92,16 +102,25 @@ ul{ list-style:none; padding:0; }
   line-height:1.25;
   letter-spacing:2px;
   margin:8px 0 4px;
-  text-shadow:
-    0 4px 0 var(--ink-2), 0 6px 0 #000,
-    4px 0 0 #0004, -4px 0 0 #0004;
+  text-shadow:0 4px 0 var(--ink-2), 0 6px 0 #000, 4px 0 0 #0004, -4px 0 0 #0004;
 }
 .tt-a{ color:var(--gold); }
 .tt-b{ color:var(--c-red-lt); }
 .title-sub{ font-size:clamp(8px,2.4vw,12px); color:var(--parch-dk); letter-spacing:1px; }
 
+.title-cast{ display:flex; justify-content:center; gap:14px; margin:24px 0 4px; }
+.cast-art{
+  width:clamp(38px,9vw,58px); height:clamp(38px,9vw,58px);
+  filter:drop-shadow(0 4px 0 #0007);
+  animation:cast-bob 1.8s steps(4) infinite alternate;
+}
+.cast-art:nth-child(2){ animation-delay:.18s }
+.cast-art:nth-child(3){ animation-delay:.36s }
+.cast-art:nth-child(4){ animation-delay:.54s }
+@keyframes cast-bob{ from{ transform:translateY(0) } to{ transform:translateY(-7px) } }
+
 .tap-to-play{
-  margin-top:34px;
+  margin-top:26px;
   font-size:clamp(10px,3vw,16px);
   color:#fff;
   animation:blink 1s steps(2) infinite;
@@ -116,10 +135,10 @@ ul{ list-style:none; padding:0; }
   border:4px solid var(--frame);
   box-shadow:0 0 0 4px var(--ink), 0 14px 0 #0006;
   padding:22px 18px;
-  image-rendering:pixelated;
+  margin:auto;
 }
 .panel-title{ font-size:16px; color:var(--gold); text-align:center; margin-bottom:6px; text-shadow:0 3px 0 #0008; }
-.panel-sub{ font-size:9px; color:var(--parch-dk); text-align:center; margin-bottom:18px; }
+.panel-sub{ font-size:9px; color:var(--parch-dk); text-align:center; margin-bottom:18px; line-height:1.8; }
 
 .mode-btn{
   display:flex; align-items:center; gap:14px;
@@ -167,7 +186,7 @@ ul{ list-style:none; padding:0; }
 .slot-blue{   border-left:8px solid var(--c-blue); }
 .slot-yellow{ border-left:8px solid var(--c-yellow); }
 
-.slot-avatar{ width:40px; height:40px; display:grid; place-items:center; font-size:22px; flex:0 0 auto; }
+.slot-avatar{ width:42px; height:42px; flex:0 0 auto; filter:drop-shadow(0 2px 0 #0007); }
 .slot-info{ display:flex; flex-direction:column; gap:5px; flex:1 1 auto; }
 .slot-info strong{ font-size:10px; }
 .slot-info small{ font-size:7px; color:var(--parch-dk); }
@@ -182,9 +201,77 @@ ul{ list-style:none; padding:0; }
 .slot-toggle:active{ transform:translateY(3px); box-shadow:0 1px 0 #0007; }
 
 .setup-hint{ font-size:7.5px; color:var(--parch-dk); text-align:center; margin:16px 0 4px; line-height:1.9; }
-.setup-actions{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+.setup-actions{ display:flex; align-items:center; justify-content:space-between; margin-top:14px; gap:10px; }
 
-/* ---------------- 4. GAME LAYOUT ---------------- */
+/* ---------------- 4. LAYAR PROBABILITAS ---------------- */
+.preset-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+.preset-tab{
+  flex:1 1 0; padding:12px 6px; font-size:9px; color:#ffffff9a;
+  border:3px solid #0007; background:#ffffff12; box-shadow:0 4px 0 #0007;
+}
+.preset-tab.is-on{ color:var(--ink); background:linear-gradient(180deg,var(--gold),#c98f1e); }
+.preset-tab:active{ transform:translateY(3px); box-shadow:0 1px 0 #0007; }
+
+.prob-summary{
+  border:3px solid #0007; background:#00000038; padding:10px 12px; margin-bottom:14px;
+}
+.prob-summary li{
+  display:flex; align-items:center; gap:8px;
+  font-size:8px; line-height:2.4; color:var(--parch-dk);
+}
+.prob-summary li b{ color:#fff; flex:1 1 auto; }
+.prob-summary li .pv{ color:var(--gold); min-width:38px; text-align:right; }
+.prob-summary li .bar{
+  flex:0 0 84px; height:8px; background:#ffffff1c; border:1px solid #0007;
+}
+.prob-summary li .bar i{ display:block; height:100%; background:var(--gold); }
+
+.prob-h3{ font-size:9px; color:var(--gold); margin:14px 0 8px; }
+.prob-hint{ font-size:7px; color:var(--parch-dk); line-height:1.9; margin-bottom:10px; }
+.prob-note{ font-size:7.5px; color:var(--parch-dk); line-height:1.9; margin-top:10px; }
+.prob-note.is-warn{ color:#ffb4a2; }
+
+.slider-row{
+  display:flex; align-items:center; gap:8px;
+  padding:6px 0; font-size:8px;
+}
+.sl-icon{ font-size:14px; flex:0 0 auto; }
+.sl-name{ flex:0 0 92px; }
+.sl-val{ flex:0 0 40px; text-align:right; color:var(--gold); }
+
+input[type=range]{
+  flex:1 1 auto; min-width:0; height:16px;
+  -webkit-appearance:none; appearance:none;
+  background:transparent; cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:8px; background:#ffffff1c; border:2px solid #0007;
+}
+input[type=range]::-moz-range-track{
+  height:8px; background:#ffffff1c; border:2px solid #0007;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:14px; height:18px; margin-top:-7px;
+  background:var(--gold); border:2px solid #0007; box-shadow:0 2px 0 #0007;
+}
+input[type=range]::-moz-range-thumb{
+  width:14px; height:18px; border-radius:0;
+  background:var(--gold); border:2px solid #0007;
+}
+
+.num-grid{ display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; }
+@media(max-width:520px){ .num-grid{ grid-template-columns:1fr; } }
+.num-row{ display:flex; align-items:center; gap:8px; font-size:8px; padding:4px 0; }
+.num-row .nr-die{
+  flex:0 0 auto;
+  width:18px; height:18px; line-height:18px; text-align:center;
+  font-size:8px; color:#23262f;
+  background:var(--bone); border:2px solid #23262f;
+}
+.num-row .nr-val{ flex:0 0 38px; text-align:right; color:var(--gold); }
+
+/* ---------------- 5. GAME LAYOUT ---------------- */
 .screen-game{ flex-direction:column; align-items:stretch; padding:0; }
 
 .hud-top{
@@ -210,7 +297,7 @@ ul{ list-style:none; padding:0; }
 .turn-banner.t-green{  box-shadow:inset 6px 0 0 var(--c-green); }
 .turn-banner.t-blue{   box-shadow:inset 6px 0 0 var(--c-blue); }
 .turn-banner.t-yellow{ box-shadow:inset 6px 0 0 var(--c-yellow); }
-.turn-avatar{ font-size:20px; }
+.turn-avatar{ width:30px; height:30px; flex:0 0 auto; filter:drop-shadow(0 2px 0 #0007); }
 .turn-text{ display:flex; flex-direction:column; gap:5px; }
 .turn-text strong{ font-size:10px; }
 .turn-text small{ font-size:7px; color:var(--parch-dk); }
@@ -220,19 +307,115 @@ ul{ list-style:none; padding:0; }
   display:flex; gap:14px; padding:12px; align-items:flex-start;
   overflow:auto;
 }
-@media(max-width:900px){
+@media(max-width:980px){
   .game-body{ flex-direction:column; align-items:center; }
 }
 
-/* ---------------- 5. BOARD ---------------- */
-.board-wrap{
-  flex:1 1 auto;
-  display:grid; place-items:center;
-  width:100%; min-width:0;
+/* ---------------- 6. PANGGUNG: PAPAN + 4 DADU ---------------- */
+/* Panggung dibatasi selebar papan agar keempat dadu menempel tepat di
+   tepi kiri/kanan papan: 2 di atas, 2 di bawah. */
+.stage{
+  flex:0 1 auto; min-width:0;
+  width:min(58vh, 100%, 560px);
+  margin-inline:auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-areas:
+    "tl tr"
+    "board board"
+    "bl br";
+  gap:8px;
 }
+.pod-tl{ grid-area:tl; justify-self:start; }
+.pod-tr{ grid-area:tr; justify-self:end; }
+.pod-bl{ grid-area:bl; justify-self:start; }
+.pod-br{ grid-area:br; justify-self:end; }
+.board-wrap{ grid-area:board; width:100%; }
+
+.pod{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:8px 10px;
+  border:3px solid #0007; background:#ffffff10;
+  box-shadow:0 4px 0 #0006;
+  transition:box-shadow .15s steps(2), background .15s steps(2);
+}
+.pod.is-turn{ background:#ffffff24; }
+.pod[data-color="red"].is-turn{    box-shadow:0 0 0 3px var(--c-red-lt),    0 4px 0 #0006; }
+.pod[data-color="green"].is-turn{  box-shadow:0 0 0 3px var(--c-green-lt),  0 4px 0 #0006; }
+.pod[data-color="blue"].is-turn{   box-shadow:0 0 0 3px var(--c-blue-lt),   0 4px 0 #0006; }
+.pod[data-color="yellow"].is-turn{ box-shadow:0 0 0 3px var(--c-yellow-lt), 0 4px 0 #0006; }
+.pod.is-out{ opacity:.32; filter:grayscale(.8); }
+
+.pod-head{ display:flex; align-items:center; gap:6px; }
+.pod-avatar{ width:22px; height:22px; filter:drop-shadow(0 2px 0 #0007); }
+.pod-name{ font-size:8px; }
+.pod[data-color="red"]    .pod-name{ color:var(--c-red-lt); }
+.pod[data-color="green"]  .pod-name{ color:var(--c-green-lt); }
+.pod[data-color="blue"]   .pod-name{ color:var(--c-blue-lt); }
+.pod[data-color="yellow"] .pod-name{ color:var(--c-yellow-lt); }
+
+/* ---------------- 7. DADU PIXEL ---------------- */
+.die{
+  position:relative;
+  width:58px; height:58px; padding:9px;
+  background:var(--bone);
+  border:3px solid #23262f;
+  box-shadow:0 5px 0 #0007, inset 0 0 0 3px #ffffffcc, inset -5px -5px 0 #00000018;
+  cursor:default;
+}
+.die-pips{
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+  gap:3px; width:100%; height:100%;
+}
+.die-pips i{ background:transparent; }
+.die-pips i.on{
+  background:#23262f;
+  box-shadow:inset -2px -2px 0 #ffffff2e, inset 2px 2px 0 #00000055;
+}
+.die-special{
+  display:none;
+  position:absolute; inset:3px;
+  flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  font-size:20px; line-height:1;
+}
+.die-special b{ font-size:7px; letter-spacing:0; }
+
+/* sisi spesial chaos */
+.die.is-special .die-pips{ display:none; }
+.die.is-special .die-special{ display:flex; }
+.die.face-x2{     background:linear-gradient(180deg,#b28cf0,#6a4fb5); color:#fff; }
+.die.face-attack{ background:linear-gradient(180deg,#e2604c,#a5372f); color:#fff; }
+.die.face-shield{ background:linear-gradient(180deg,#5ec8e8,#2a7fbf); color:#fff; }
+.die.face-angel{  background:linear-gradient(180deg,#ffe9a8,#d8a613); color:#3a2a10; }
+
+/* dadu pemain aktif */
+.die.is-live{ cursor:pointer; animation:die-ready .7s steps(2) infinite alternate; }
+@keyframes die-ready{
+  from{ transform:translateY(0);   box-shadow:0 5px 0 #0007, inset 0 0 0 3px #ffffffcc; }
+  to  { transform:translateY(-4px);box-shadow:0 9px 0 #0007, inset 0 0 0 3px #fff, 0 0 0 3px var(--gold); }
+}
+.die.is-rolling{ animation:die-roll .45s steps(6) infinite; }
+@keyframes die-roll{
+  0%{ transform:rotate(0) scale(1) }
+  25%{ transform:rotate(-14deg) scale(1.08) }
+  50%{ transform:rotate(12deg) scale(.94) }
+  75%{ transform:rotate(-7deg) scale(1.05) }
+  100%{ transform:rotate(0) scale(1) }
+}
+/* dadu pemain yang bukan gilirannya diredupkan */
+.die.is-stale .die-pips i.on{ background:#23262f66; box-shadow:none; }
+.die.is-stale .die-special{ opacity:.5; }
+.die.is-stale{ filter:saturate(.6) brightness(.92); }
+
+@media(max-width:520px){
+  .die{ width:48px; height:48px; padding:7px; }
+  .pod{ padding:6px 8px; }
+}
+
+/* ---------------- 8. PAPAN ---------------- */
 .board{
   position:relative;
-  width:min(78vh, 100%, 640px);
+  width:100%;
   aspect-ratio:1/1;
   background:linear-gradient(180deg,var(--wood),var(--wood-dk));
   border:6px solid var(--frame);
@@ -257,12 +440,6 @@ ul{ list-style:none; padding:0; }
   border:1px solid #00000033;
   box-shadow:inset 0 0 0 2px #ffffff40, inset 0 -3px 0 var(--parch-dk);
 }
-
-.cell-path.p-red{    box-shadow:inset 0 0 0 2px var(--c-red-lt),    inset 0 -3px 0 var(--parch-dk); }
-.cell-path.p-green{  box-shadow:inset 0 0 0 2px var(--c-green-lt),  inset 0 -3px 0 var(--parch-dk); }
-.cell-path.p-blue{   box-shadow:inset 0 0 0 2px var(--c-blue-lt),   inset 0 -3px 0 var(--parch-dk); }
-.cell-path.p-yellow{ box-shadow:inset 0 0 0 2px var(--c-yellow-lt), inset 0 -3px 0 var(--parch-dk); }
-
 .cell-start.s-red{    background:var(--c-red); }
 .cell-start.s-green{  background:var(--c-green); }
 .cell-start.s-blue{   background:var(--c-blue); }
@@ -271,7 +448,7 @@ ul{ list-style:none; padding:0; }
 .cell-safe::after{
   content:"🛡"; position:absolute; inset:0;
   display:grid; place-items:center;
-  font-size:clamp(7px,1.3vw,12px); opacity:.75;
+  font-size:clamp(7px,1.3vw,12px); opacity:.7;
 }
 
 .cell-home.h-red{    background:var(--c-red); }
@@ -284,9 +461,8 @@ ul{ list-style:none; padding:0; }
   font-size:clamp(6px,1.2vw,11px); color:#ffffffcc;
 }
 
-/* markas */
 /* Grid papan ber-inset 2.2%; 1 petak = 95.6%/15 = 6.3733% dari lebar papan.
-   Markas = 6x6 petak  -> 38.24%   |   Pusat = 3x3 petak -> 19.12% (offset 40.44%) */
+   Markas = 6x6 petak -> 38.24%  |  Pusat = 3x3 petak -> 19.12% (offset 40.44%) */
 .yard{ position:absolute; width:38.24%; height:38.24%; padding:1.2%; }
 .yard-red{    left:2.2%;  top:2.2%; }
 .yard-green{  right:2.2%; top:2.2%; }
@@ -302,42 +478,34 @@ ul{ list-style:none; padding:0; }
 .yard-blue   .yard-inner{ background:var(--c-blue);   border-color:var(--c-blue-lt); }
 .yard-yellow .yard-inner{ background:var(--c-yellow); border-color:var(--c-yellow-lt); }
 .yard.is-active .yard-inner{ animation:yard-glow .8s steps(2) infinite alternate; }
+@keyframes yard-glow{ from{ filter:brightness(1) } to{ filter:brightness(1.4) } }
 .yard.is-disabled{ filter:grayscale(.75) brightness(.55); }
-@keyframes yard-glow{ from{ filter:brightness(1) } to{ filter:brightness(1.45) } }
 
-/* pusat */
 .center-zone{
   position:absolute; left:40.44%; top:40.44%; width:19.12%; height:19.12%;
   /* tiap wedge menghadap home column pemiliknya:
      merah masuk dari kiri, hijau dari atas, kuning dari kanan, biru dari bawah */
   background:conic-gradient(from 45deg,
-      var(--c-yellow)  0deg  90deg,   /* kanan */
-      var(--c-blue)   90deg 180deg,   /* bawah */
-      var(--c-red)   180deg 270deg,   /* kiri  */
-      var(--c-green) 270deg 360deg);  /* atas  */
+      var(--c-yellow)  0deg  90deg,
+      var(--c-blue)   90deg 180deg,
+      var(--c-red)   180deg 270deg,
+      var(--c-green) 270deg 360deg);
   border:3px solid #0006;
   box-shadow:inset 0 0 0 3px #ffffff55;
   display:grid; place-items:center;
   overflow:hidden;
 }
-.center-tri{ display:none; }
 .center-trophy{
   font-size:clamp(12px,2.6vw,24px);
   filter:drop-shadow(0 3px 0 #0006);
-  z-index:2;
   animation:crown-float 1.6s steps(4) infinite alternate;
 }
 
-/* layer bidak & efek */
-.piece-layer, .fx-layer, .board-overlay{
-  position:absolute; inset:2.2%;
-  pointer-events:none;
-}
+.piece-layer, .fx-layer{ position:absolute; inset:2.2%; pointer-events:none; }
 .piece-layer{ z-index:5; }
 .fx-layer{ z-index:9; overflow:visible; }
-.board-overlay{ z-index:12; }
 
-/* ---------------- 6. BIDAK (PIECES) ---------------- */
+/* ---------------- 9. BIDAK KARAKTER ---------------- */
 .piece{
   position:absolute;
   width:var(--piece-size); height:var(--piece-size);
@@ -346,69 +514,66 @@ ul{ list-style:none; padding:0; }
   transition:left .16s linear, top .16s linear;
   will-change:left,top;
   pointer-events:auto;
-  cursor:default;
   z-index:1;
 }
 .piece.is-moving{ z-index:30 !important; }
 
-.piece-inner{
-  position:relative;
-  width:100%; height:100%;
-  display:grid; place-items:center;
-  border-radius:50% 50% 26% 26%;
-  border:2px solid #0008;
-  box-shadow:0 3px 0 #0006;
-  font-size:clamp(9px,1.7vw,16px);
-  line-height:1;
-}
-.piece[data-color="red"]    .piece-inner{ background:linear-gradient(180deg,var(--c-red-lt),var(--c-red-dk)); }
-.piece[data-color="green"]  .piece-inner{ background:linear-gradient(180deg,var(--c-green-lt),var(--c-green-dk)); }
-.piece[data-color="blue"]   .piece-inner{ background:linear-gradient(180deg,var(--c-blue-lt),var(--c-blue-dk)); }
-.piece[data-color="yellow"] .piece-inner{ background:linear-gradient(180deg,var(--c-yellow-lt),var(--c-yellow-dk)); }
+.piece-inner{ position:relative; width:100%; height:100%; }
 
-/* slot placeholder untuk sprite pixel art asli */
-.piece-art{
-  background-size:contain; background-repeat:no-repeat; background-position:center;
+/* alas berwarna tim — penanda kepemilikan bidak */
+.piece-base{
+  position:absolute; left:50%; bottom:-2%;
+  transform:translateX(-50%);
+  width:82%; height:26%;
+  border-radius:50%;
+  border:2px solid #00000088;
+  box-shadow:0 2px 0 #00000055;
 }
-.piece-art.has-sprite{ font-size:0 !important; }
-.piece-knight{}
-.piece-elf{}
-.piece-witch{}
-.piece-dragon{}
+.piece[data-color="red"]    .piece-base{ background:radial-gradient(circle at 50% 30%, var(--c-red-lt), var(--c-red-dk)); }
+.piece[data-color="green"]  .piece-base{ background:radial-gradient(circle at 50% 30%, var(--c-green-lt), var(--c-green-dk)); }
+.piece[data-color="blue"]   .piece-base{ background:radial-gradient(circle at 50% 30%, var(--c-blue-lt), var(--c-blue-dk)); }
+.piece[data-color="yellow"] .piece-base{ background:radial-gradient(circle at 50% 30%, var(--c-yellow-lt), var(--c-yellow-dk)); }
+
+/* sprite karakter pixel art */
+.piece-sprite{
+  position:absolute; left:50%; bottom:12%;
+  transform:translateX(-50%);
+  width:100%; height:92%;
+  filter:drop-shadow(0 2px 0 #00000066) drop-shadow(0 0 2px #ffffff40);
+}
+
+/* badge & awan default tersembunyi */
+.piece .shield-badge, .piece .cloud{ display:none; }
+.piece.has-shield .shield-badge{
+  display:block; position:absolute; top:-16%; right:-16%;
+  font-size:clamp(7px,1.2vw,12px);
+  filter:drop-shadow(0 1px 0 #000);
+}
+.piece.on-cloud .cloud{
+  display:block;
+  position:absolute; left:50%; top:66%;
+  transform:translate(-50%,0);
+  font-size:clamp(13px,2.6vw,24px);
+  animation:cloud-bob .3s steps(2) infinite alternate;
+}
+@keyframes cloud-bob{ from{ transform:translate(-50%,0) } to{ transform:translate(-50%,14%) } }
+.piece.on-cloud{ transition:left .09s linear, top .09s linear; }
+.piece.on-cloud .piece-inner{ animation:cloud-lift .4s steps(3) forwards; }
+@keyframes cloud-lift{ from{ transform:translateY(0) } to{ transform:translateY(-30%) } }
 
 /* animasi lompat antar petak */
 .piece.hop .piece-inner{ animation:hop var(--hop-dur,170ms) steps(6) 1; }
 @keyframes hop{
-  0%  { transform:translateY(0)     scale(1,1); }
-  25% { transform:translateY(-52%)  scale(.92,1.12); }
-  55% { transform:translateY(-72%)  scale(1,1); }
-  85% { transform:translateY(-14%)  scale(1.08,.9); }
-  100%{ transform:translateY(0)     scale(1,1); }
-}
-
-/* bidak bertumpuk di satu petak */
-.piece.is-stacked{ width:calc(var(--piece-size) * .74); height:calc(var(--piece-size) * .74);
-  margin-left:calc(var(--piece-size) * -.37); margin-top:calc(var(--piece-size) * -.37); }
-
-/* bidak yang bisa digerakkan */
-.piece.is-selectable{ cursor:pointer; z-index:20 !important; }
-.piece.is-selectable .piece-inner{ animation:pick-me .55s steps(2) infinite alternate; }
-@keyframes pick-me{
-  from{ box-shadow:0 3px 0 #0006, 0 0 0 2px #fff8; }
-  to  { box-shadow:0 3px 0 #0006, 0 0 0 6px var(--gold); transform:translateY(-10%); }
-}
-
-/* target serangan */
-.piece.is-target{ cursor:crosshair; z-index:22 !important; }
-.piece.is-target .piece-inner{ animation:target-lock .4s steps(2) infinite alternate; }
-@keyframes target-lock{
-  from{ box-shadow:0 0 0 3px #fff, 0 0 0 6px #e74c3c; }
-  to  { box-shadow:0 0 0 3px #e74c3c, 0 0 0 9px #fff0; transform:scale(1.12); }
+  0%  { transform:translateY(0)    scale(1,1); }
+  25% { transform:translateY(-46%) scale(.94,1.1); }
+  55% { transform:translateY(-64%) scale(1,1); }
+  85% { transform:translateY(-12%) scale(1.06,.92); }
+  100%{ transform:translateY(0)    scale(1,1); }
 }
 
 /* perisai */
 .piece.has-shield .piece-inner::after{
-  content:""; position:absolute; inset:-22%;
+  content:""; position:absolute; inset:-8% -14%;
   border:2px solid #7fe6ff;
   border-radius:50%;
   box-shadow:0 0 8px #7fe6ff, inset 0 0 6px #7fe6ff;
@@ -416,41 +581,43 @@ ul{ list-style:none; padding:0; }
 }
 @keyframes shield-spin{
   0%{ transform:rotate(0) scale(1); opacity:.95; }
-  50%{ transform:rotate(180deg) scale(1.1); opacity:.6; }
+  50%{ transform:rotate(180deg) scale(1.08); opacity:.6; }
   100%{ transform:rotate(360deg) scale(1); opacity:.95; }
 }
-/* badge & awan default tersembunyi, hanya tampil saat statusnya aktif */
-.piece .shield-badge, .piece .cloud{ display:none; }
-.piece.has-shield .shield-badge{
-  display:block;
-  position:absolute; top:-46%; right:-34%;
-  font-size:clamp(7px,1.1vw,11px);
-  filter:drop-shadow(0 1px 0 #000);
+
+/* bidak bertumpuk dikecilkan supaya area kliknya tidak saling menutupi */
+.piece.is-stacked{
+  width:calc(var(--piece-size) * .74); height:calc(var(--piece-size) * .74);
+  margin-left:calc(var(--piece-size) * -.37); margin-top:calc(var(--piece-size) * -.37);
 }
-.piece.on-cloud .cloud{ display:block; }
 
-/* naik awan (dadu x2) */
-.piece.on-cloud{ transition:left .09s linear, top .09s linear; }
-.piece.on-cloud .cloud{
-  position:absolute; left:50%; top:64%;
-  transform:translate(-50%,0);
-  font-size:clamp(13px,2.6vw,24px);
-  animation:cloud-bob .3s steps(2) infinite alternate;
+/* bidak yang bisa dipilih */
+.piece.is-selectable{ cursor:pointer; z-index:20 !important; }
+.piece.is-selectable .piece-sprite{
+  animation:pick-me .5s steps(2) infinite alternate;
+  filter:drop-shadow(0 2px 0 #000) drop-shadow(0 0 4px var(--gold));
 }
-@keyframes cloud-bob{ from{ transform:translate(-50%,0) } to{ transform:translate(-50%,14%) } }
-.piece.on-cloud .piece-inner{ animation:cloud-lift .4s steps(3) forwards; }
-@keyframes cloud-lift{ from{ transform:translateY(0) } to{ transform:translateY(-34%) } }
+.piece.is-selectable .piece-base{ box-shadow:0 0 0 3px var(--gold); }
+@keyframes pick-me{ from{ transform:translate(-50%,0) } to{ transform:translate(-50%,-16%) } }
 
-/* bidak sudah finish */
-.piece.is-finished .piece-inner{ filter:saturate(1.4) brightness(1.15); }
+/* target serangan */
+.piece.is-target{ cursor:crosshair; z-index:22 !important; }
+.piece.is-target .piece-sprite{
+  animation:target-lock .38s steps(2) infinite alternate;
+  filter:drop-shadow(0 0 4px #e74c3c) drop-shadow(0 0 8px #fff);
+}
+@keyframes target-lock{
+  from{ transform:translate(-50%,0) scale(1) }
+  to  { transform:translate(-50%,0) scale(1.16) }
+}
+.piece.is-target .piece-base{ box-shadow:0 0 0 3px #e74c3c; }
 
-/* ---------------- 7. EFEK (FX) ---------------- */
+.piece.is-finished .piece-sprite{ filter:drop-shadow(0 0 4px var(--gold)) saturate(1.3); }
+
+/* ---------------- 10. EFEK (FX) ---------------- */
 .fx{ position:absolute; transform:translate(-50%,-50%); pointer-events:none; }
 
-.fx-burst{
-  font-size:clamp(16px,3.4vw,32px);
-  animation:burst .55s steps(5) forwards;
-}
+.fx-burst{ font-size:clamp(16px,3.4vw,32px); animation:burst .55s steps(5) forwards; }
 @keyframes burst{
   0%  { transform:translate(-50%,-50%) scale(.3) rotate(-25deg); opacity:0; }
   30% { transform:translate(-50%,-50%) scale(1.5) rotate(8deg);  opacity:1; }
@@ -478,8 +645,7 @@ ul{ list-style:none; padding:0; }
 
 .fx-shockwave{
   width:12%; height:12%;
-  border:3px solid #fff;
-  border-radius:50%;
+  border:3px solid #fff; border-radius:50%;
   animation:shock .5s steps(4) forwards;
 }
 @keyframes shock{
@@ -494,43 +660,17 @@ ul{ list-style:none; padding:0; }
   100%{ transform:translate(0,0) }
 }
 
-/* ---------------- 8. SIDE PANEL ---------------- */
+/* ---------------- 11. SIDE PANEL ---------------- */
 .side-panel{
-  flex:0 0 280px; width:280px; max-width:100%;
+  flex:0 0 268px; width:268px; max-width:100%;
   display:flex; flex-direction:column; gap:12px;
 }
-@media(max-width:900px){ .side-panel{ flex:1 1 auto; width:min(560px,100%); } }
+@media(max-width:980px){ .side-panel{ flex:1 1 auto; width:min(560px,100%); } }
 
-.dice-tray{
-  background:#00000055; border:3px solid #0008; padding:14px;
-  display:flex; flex-direction:column; align-items:center; gap:10px;
+.control-box{
+  background:#00000055; border:3px solid #0008; padding:12px;
+  display:flex; flex-direction:column; gap:8px;
 }
-.dice-shell{ width:74px; height:74px; display:grid; place-items:center; }
-.dice{
-  width:70px; height:70px;
-  display:grid; place-items:center;
-  background:linear-gradient(180deg,#fdf6e3,#cdb98f);
-  border:3px solid #0008;
-  box-shadow:0 6px 0 #0007, inset 0 0 0 3px #fff8;
-  color:var(--ink);
-  font-size:26px;
-}
-.dice.is-rolling{ animation:dice-roll .6s steps(8) infinite; }
-@keyframes dice-roll{
-  0%{ transform:rotate(0) scale(1) }
-  25%{ transform:rotate(-16deg) scale(1.1) }
-  50%{ transform:rotate(14deg) scale(.92) }
-  75%{ transform:rotate(-8deg) scale(1.06) }
-  100%{ transform:rotate(0) scale(1) }
-}
-.dice.face-special{ background:linear-gradient(180deg,#7f5bd6,#3f2a72); color:#fff; }
-.dice.face-attack{ background:linear-gradient(180deg,#e2604c,#7e2019); color:#fff; }
-.dice.face-shield{ background:linear-gradient(180deg,#5ec8e8,#14486e); color:#fff; }
-.dice.face-angel{  background:linear-gradient(180deg,#ffe9a8,#c9a227); color:var(--ink); }
-.dice.face-x2{     background:linear-gradient(180deg,#b28cf0,#4a3163); color:#fff; }
-.dice-face{ font-size:24px; line-height:1; text-align:center; }
-.dice-face.is-number{ font-size:30px; }
-
 .roll-btn{ width:100%; font-size:10px; padding:13px 8px; }
 .action-hint{ font-size:7.5px; color:var(--parch-dk); text-align:center; line-height:1.9; min-height:2.6em; }
 
@@ -541,19 +681,14 @@ ul{ list-style:none; padding:0; }
   font-size:8px;
 }
 .score-row.is-turn{ background:#ffffff26; box-shadow:0 0 0 2px var(--gold); }
-.score-row.is-out{ opacity:.4; }
-.score-dot{ width:12px; height:12px; border:2px solid #0007; flex:0 0 auto; }
-.score-dot.red{ background:var(--c-red) } .score-dot.green{ background:var(--c-green) }
-.score-dot.blue{ background:var(--c-blue) } .score-dot.yellow{ background:var(--c-yellow) }
+.score-avatar{ width:20px; height:20px; flex:0 0 auto; }
 .score-name{ flex:1 1 auto; }
 .score-tag{ font-size:6.5px; color:var(--parch-dk); }
 .score-pips{ display:flex; gap:3px; }
 .score-pip{ width:7px; height:7px; background:#ffffff30; border:1px solid #0006; }
 .score-pip.done{ background:var(--gold); }
 
-.chaos-legend, .log-box{
-  background:#00000055; border:3px solid #0008; padding:10px 12px;
-}
+.chaos-legend, .log-box{ background:#00000055; border:3px solid #0008; padding:10px 12px; }
 .chaos-legend h3, .log-box h3{ font-size:9px; color:var(--gold); margin-bottom:8px; }
 .chaos-legend li{ font-size:7px; line-height:2.1; color:var(--parch-dk); display:flex; gap:6px; }
 .chaos-legend li b{ color:#fff; }
@@ -563,7 +698,7 @@ ul{ list-style:none; padding:0; }
 .log-list li{ font-size:7px; line-height:1.9; color:var(--parch-dk); border-left:3px solid #ffffff22; padding-left:6px; }
 .log-list li.hot{ color:#fff; border-left-color:var(--gold); }
 
-/* ---------------- 9. TOAST & MODAL ---------------- */
+/* ---------------- 12. TOAST & MODAL ---------------- */
 .toast{
   position:absolute; left:50%; top:74px; transform:translateX(-50%);
   padding:12px 16px; z-index:60;
@@ -575,11 +710,7 @@ ul{ list-style:none; padding:0; }
 }
 @keyframes toast-in{ from{ transform:translate(-50%,-16px); opacity:0 } to{ transform:translate(-50%,0); opacity:1 } }
 
-.modal{
-  position:absolute; inset:0; z-index:80;
-  display:grid; place-items:center;
-  background:#000000cc;
-}
+.modal{ position:absolute; inset:0; z-index:80; display:grid; place-items:center; background:#000000cc; }
 .modal[hidden]{ display:none; }
 .modal-card{
   width:min(420px,90%); text-align:center; padding:26px 20px;
@@ -587,12 +718,12 @@ ul{ list-style:none; padding:0; }
   border:4px solid var(--gold); box-shadow:0 0 0 4px var(--ink), 0 14px 0 #0007;
   animation:screen-in .3s steps(4) both;
 }
-.win-crown{ font-size:52px; animation:crown-float 1.2s steps(4) infinite alternate; }
+.win-crown{ font-size:46px; animation:crown-float 1.2s steps(4) infinite alternate; }
+.win-avatar{ width:64px; height:64px; margin-top:6px; filter:drop-shadow(0 4px 0 #0007); }
 #win-title{ font-size:15px; color:var(--gold); margin:12px 0 10px; }
 #win-sub{ font-size:8px; color:var(--parch-dk); line-height:2; }
 .modal-actions{ margin-top:22px; display:flex; flex-direction:column; gap:8px; align-items:center; }
 .modal-actions .primary-btn{ width:100%; }
 
-/* ---------------- 10. UTIL ---------------- */
+/* ---------------- 13. UTIL ---------------- */
 [hidden]{ display:none !important; }
-.no-input{ pointer-events:none; }

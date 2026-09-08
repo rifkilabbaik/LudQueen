@@ -4,12 +4,13 @@
    Vanilla JS · turn-based state machine · tanpa framework eksternal.
 
    Struktur:
-     1. KONFIGURASI (termasuk probabilitas Dadu Chaos)
-     2. PATH MAPPING (array koordinat papan 15x15)
-     3. AudioFX  (Web Audio API)
-     4. Piece / Player (OOP)
-     5. LudQueenGame (engine + renderer + animasi)
-     6. UI / Screen flow
+     1. KONFIGURASI & PROBABILITAS DADU
+     2. SPRITE PIXEL ART (karakter bidak)
+     3. PATH MAPPING (array koordinat papan 15x15)
+     4. AudioFX (Web Audio API)
+     5. Piece / Player (OOP)
+     6. LudQueenGame (engine + renderer + animasi)
+     7. UI / Screen flow
    ========================================================================= */
 
 
@@ -24,32 +25,35 @@ const CONFIG = {
      51..55 = 5 petak home column
      56     = HOME FINISH                     */
   stepsToFinish:    56,
-  hopDurationMs:    170,   // durasi lompat antar petak
-  cloudStepMs:      95,    // durasi per petak saat naik awan (dadu x2)
+  hopDurationMs:    170,
+  cloudStepMs:      95,
   botThinkMs:       650,
   autoPlaySingleMoveMs: 320,
   diceSpinMs:       620,
-  /* pengali global semua jeda animasi — pakai 0 untuk simulasi/uji cepat */
+  /* pengali global semua jeda animasi — pakai 0.01 untuk simulasi/uji cepat */
   animationScale:   1,
   extraTurnOnSix:   true,
-  maxConsecutiveSixes: 3,  // 3x enam beruntun -> giliran hangus
+  maxConsecutiveSixes: 3,
 };
 
-/* ---- PROBABILITAS DADU CHAOS (silakan diubah bebas) --------------------
-   Nilai apa pun boleh; engine menormalkannya jadi 100%.               */
-const CHAOS_DICE_CONFIG = {
-  faceWeight: {
-    number: 60,   // dadu angka biasa 1-6
-    x2:     14,   // angka x2 + animasi naik awan
-    attack: 11,   // tembak 1 bidak lawan mana saja
-    shield: 10,   // perisai 1x pakai
-    angel:   5,   // semua bidak keluar markas + giliran ekstra
-  },
-  /* bobot angka untuk face "number" */
-  numberWeight:   { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 14 },
-  /* bobot angka dasar untuk face "x2" (dikali 2 saat dipakai) */
-  x2NumberWeight: { 1: 10, 2: 12, 3: 14, 4: 12, 5: 8, 6: 6 },
+/* ---- PROBABILITAS DADU CHAOS -------------------------------------------
+   Angka = persen peluang munculnya tiap sisi spesial. Sisanya otomatis
+   menjadi dadu normal (angka 1-6). Bisa diubah pemain lewat layar
+   "Pengaturan Dadu Chaos" sebelum masuk permainan.                     */
+const DEFAULT_SPECIAL_PROB = { x2: 10, attack: 3, angel: 3, shield: 5 };
+
+/* bobot tiap mata dadu — dipakai untuk sisi normal maupun angka dasar x2 */
+const DEFAULT_NUMBER_WEIGHT = { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10 };
+
+const MAX_SPECIAL_TOTAL = 90;   // sisakan minimal 10% untuk dadu normal
+
+const DICE_PROB = {
+  preset: 'default',
+  special: { ...DEFAULT_SPECIAL_PROB },
+  numberWeight: { ...DEFAULT_NUMBER_WEIGHT },
 };
+const specialTotal = () => Object.values(DICE_PROB.special).reduce((a, b) => a + b, 0);
+const normalPercent = () => 100 - specialTotal();
 
 /* ---- FAKSI ------------------------------------------------------------- */
 const FACTIONS = {
@@ -76,18 +80,162 @@ const FACTIONS = {
 };
 
 const CHAOS_FACE_META = {
-  number: { icon:'🎲', label:'Angka 1-6',  desc:'Gerak normal' },
-  x2:     { icon:'☁️', label:'Dadu x2',    desc:'Angka dikali 2 · naik awan' },
-  attack: { icon:'🎯', label:'Dadu Attack',desc:'Pulangkan 1 bidak lawan' },
-  shield: { icon:'🛡️', label:'Dadu Shield',desc:'Perisai kebal 1x pakai' },
-  angel:  { icon:'👼', label:'Dadu Angel', desc:'Semua bidak keluar + giliran ekstra' },
+  number: { icon:'🎲', short:'1-6',   label:'Dadu Normal', desc:'Gerak sesuai angka' },
+  x2:     { icon:'☁️', short:'x2',    label:'Dadu x2',     desc:'Angka dikali 2 · naik awan' },
+  attack: { icon:'🎯', short:'ATK',   label:'Dadu Attack', desc:'Pulangkan 1 bidak lawan' },
+  shield: { icon:'🛡️', short:'SHLD',  label:'Dadu Shield', desc:'Perisai kebal 1x pakai' },
+  angel:  { icon:'👼', short:'ANGEL', label:'Dadu Angel',  desc:'Semua bidak keluar + giliran ekstra' },
 };
 
 const PLAY_ORDER = ['red', 'green', 'yellow', 'blue']; // searah jarum jam
 
+/* susunan titik pada mata dadu (grid 3x3, index 0..8) */
+const PIP_MAP = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8],
+};
+
 
 /* =========================================================================
-   2. PATH MAPPING — papan 15x15, koordinat [x, y] (kolom, baris)
+   2. SPRITE PIXEL ART — karakter bidak, digambar 16x16 piksel
+   -------------------------------------------------------------------------
+   Tiap sprite adalah matriks karakter; satu huruf = satu piksel yang
+   dipetakan ke palet warna di bawahnya. Sprite dirender jadi SVG
+   (1 rect per garis piksel) lalu dipasang sebagai background-image.
+   ========================================================================= */
+
+const SPRITE_PALETTE = {
+  knight: { D:'#23262f', S:'#d4d9e2', s:'#9aa1b0', V:'#14171f', G:'#f0c04a' },
+  elf:    { D:'#1d3a22', G:'#4f9a3e', g:'#2f6b28', H:'#b8823c', K:'#f2c9a0', E:'#2e7d32' },
+  witch:  { D:'#1a1030', P:'#3b2a6b', p:'#5b46a0', C:'#6ee2f5', L:'#c9b6f0', K:'#f2c9a0', E:'#2b2f6b' },
+  dragon: { D:'#4a0f0f', R:'#d83a2a', r:'#a02418', Y:'#f5cf42', H:'#e6d7b8', O:'#e8804a', W:'#ffffff' },
+};
+
+/* Knight — helm baja dengan salib emas dan celah visor */
+const SPRITE_KNIGHT = [
+  '................',
+  '......DDDD......',
+  '....DDSSSSDD....',
+  '...DSSSSSSSSD...',
+  '..DSSSSGGSSSSD..',
+  '..DSSSGGGGSSSD..',
+  '..DSSSSGGSSSSD..',
+  '..DSSSSSSSSSSD..',
+  '..DVVVVVVVVVVD..',
+  '..DSVVVVVVVVSD..',
+  '..DSSSSSSSSSSD..',
+  '..DSssssssssSD..',
+  '...DSSSSSSSSD...',
+  '....DDSSSSDD....',
+  '......DDDD......',
+  '................',
+];
+
+/* Elf — tudung hutan, rambut panjang, telinga runcing */
+const SPRITE_ELF = [
+  '................',
+  '.......DD.......',
+  '......DGGD......',
+  '.....DGGGGD.....',
+  '...DDGGGGGGDD...',
+  '..DHHGGGGGGHHD..',
+  '..DHHKKKKKKHHD..',
+  '.KDHKKKKKKKKHDK.',
+  '.KDHKEKKKKEKHDK.',
+  '..DHKKKKKKKKHD..',
+  '..DHHKKKKKKHHD..',
+  '...DHHKKKKHHD...',
+  '....DHHHHHHD....',
+  '....DgGGGGgD....',
+  '.....DDDDDD.....',
+  '................',
+];
+
+/* Witch — topi runcing bermata sihir, rambut lavender */
+const SPRITE_WITCH = [
+  '.......DD.......',
+  '......DppD......',
+  '.....DPppPD.....',
+  '....DPPppPPD....',
+  '...DPPPCCPPPD...',
+  '..DPPPPCCPPPPD..',
+  '.DPPPPPPPPPPPPD.',
+  'DDDDDDDDDDDDDDDD',
+  '.LLDKKKKKKKKDLL.',
+  '.LLDKEKKKKEKDLL.',
+  '.LLDKKKKKKKKDLL.',
+  '.LLLDKKKKKKDLLL.',
+  '..LLLDDDDDDLLL..',
+  '...LLLLLLLLLL...',
+  '....DLLLLLLD....',
+  '.....DDDDDD.....',
+];
+
+/* Dragon — kepala naga bertanduk dengan moncong dan taring */
+const SPRITE_DRAGON = [
+  '................',
+  '..H..........H..',
+  '..HH........HH..',
+  '..DHD......DHD..',
+  '...DRRDDDDRRD...',
+  '..DRRRRRRRRRRD..',
+  '..DRYYRRRRYYRD..',
+  '..DRYYRRRRYYRD..',
+  '..DRRRRRRRRRRD..',
+  '..DrRRRRRRRRrD..',
+  '...DOOOOOOOOD...',
+  '...DOWOOOOWOD...',
+  '...DOOOOOOOOD...',
+  '....DDDDDDDD....',
+  '................',
+  '................',
+];
+
+const SPRITES = {
+  knight: SPRITE_KNIGHT,
+  elf:    SPRITE_ELF,
+  witch:  SPRITE_WITCH,
+  dragon: SPRITE_DRAGON,
+};
+
+/** matriks piksel -> CSS url() berisi SVG (1 rect per garis piksel sewarna) */
+function spriteToCssUrl(rows, palette) {
+  const h = rows.length, w = rows[0].length;
+  let rects = '';
+  for (let y = 0; y < h; y++) {
+    let x = 0;
+    while (x < w) {
+      const ch = rows[y][x];
+      if (ch === '.') { x++; continue; }
+      let run = 1;
+      while (x + run < w && rows[y][x + run] === ch) run++;
+      rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${palette[ch] || '#f0f'}"/>`;
+      x += run;
+    }
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" `
+            + `shape-rendering="crispEdges">${rects}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/** pasang sprite ke class .piece-<faksi> lewat <style> yang disuntikkan */
+function installSpriteStyles() {
+  const css = Object.keys(SPRITES)
+    .map(key => `.piece-${key}{background-image:${spriteToCssUrl(SPRITES[key], SPRITE_PALETTE[key])};}`)
+    .join('\n');
+  const style = document.createElement('style');
+  style.id = 'ludqueen-sprites';
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
+
+/* =========================================================================
+   3. PATH MAPPING — papan 15x15, koordinat [x, y] (kolom, baris)
    ========================================================================= */
 
 /* Jalur utama 52 petak. Index 0 = petak start MERAH, lalu searah jarum jam. */
@@ -107,35 +255,25 @@ const TRACK = [
   [0,6],                                    // 51     penutup lingkaran
 ];
 
-/* offset petak start tiap warna pada TRACK */
 const START_INDEX = { red:0, green:13, yellow:26, blue:39 };
-
-/* petak aman (start + petak ke-8 sesudah start) */
 const SAFE_INDEXES = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
-/* home column: 5 petak menuju pusat */
 const HOME_PATH = {
   red:    [[1,7],[2,7],[3,7],[4,7],[5,7]],
   green:  [[7,1],[7,2],[7,3],[7,4],[7,5]],
   yellow: [[13,7],[12,7],[11,7],[10,7],[9,7]],
   blue:   [[7,13],[7,12],[7,11],[7,10],[7,9]],
 };
-
-const HOME_ARROW = { red:'❯', green:'❯', yellow:'❮', blue:'❮' };
 const HOME_ARROW_CHAR = { red:'➜', green:'⬇', yellow:'⬅', blue:'⬆' };
 
-/* 4 slot bidak di dalam markas */
 const YARD_SLOTS = {
   red:    [[1.6,1.6],[3.9,1.6],[1.6,3.9],[3.9,3.9]],
   green:  [[10.6,1.6],[12.9,1.6],[10.6,3.9],[12.9,3.9]],
   blue:   [[1.6,10.6],[3.9,10.6],[1.6,12.9],[3.9,12.9]],
   yellow: [[10.6,10.6],[12.9,10.6],[10.6,12.9],[12.9,12.9]],
 };
-
-/* titik tengah markas — asal proyektil serangan */
 const YARD_CENTER = { red:[2.75,2.75], green:[11.75,2.75], blue:[2.75,11.75], yellow:[11.75,11.75] };
 
-/* posisi bidak yang sudah finish (di dalam kotak pusat) */
 const FINISH_SLOTS = {
   red:    [[6.55,6.75],[6.55,7.25],[6.9,6.6],[6.9,7.4]],
   green:  [[7.25,6.55],[6.75,6.55],[7.4,6.9],[6.6,6.9]],
@@ -143,7 +281,6 @@ const FINISH_SLOTS = {
   blue:   [[6.75,8.45],[7.25,8.45],[6.6,8.1],[7.4,8.1]],
 };
 
-/* index TRACK -> warna pemilik home column (untuk pewarnaan petak start) */
 const TRACK_INDEX_BY_KEY = (() => {
   const m = new Map();
   TRACK.forEach(([x,y], i) => m.set(x + ',' + y, i));
@@ -152,14 +289,11 @@ const TRACK_INDEX_BY_KEY = (() => {
 
 
 /* =========================================================================
-   3. AUDIO FX — Web Audio API (tanpa file audio eksternal)
+   4. AUDIO FX — Web Audio API (tanpa file audio eksternal)
    ========================================================================= */
 
 class AudioFX {
-  constructor() {
-    this.ctx = null;
-    this.enabled = true;
-  }
+  constructor() { this.ctx = null; this.enabled = true; }
   _ensure() {
     if (!this.enabled) return null;
     if (!this.ctx) {
@@ -170,13 +304,10 @@ class AudioFX {
     if (this.ctx.state === 'suspended') this.ctx.resume();
     return this.ctx;
   }
-  /** nada tunggal sederhana */
   tone({ freq = 440, dur = 0.12, type = 'square', vol = 0.16, slideTo = null, delay = 0 }) {
-    const ctx = this._ensure();
-    if (!ctx) return;
+    const ctx = this._ensure(); if (!ctx) return;
     const t0 = ctx.currentTime + delay;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
     if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), t0 + dur);
@@ -187,8 +318,7 @@ class AudioFX {
     osc.start(t0); osc.stop(t0 + dur + 0.03);
   }
   noise({ dur = 0.25, vol = 0.2, delay = 0, filterFreq = 900 }) {
-    const ctx = this._ensure();
-    if (!ctx) return;
+    const ctx = this._ensure(); if (!ctx) return;
     const t0 = ctx.currentTime + delay;
     const len = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -218,16 +348,11 @@ class AudioFX {
 
 
 /* =========================================================================
-   4. OOP — Piece & Player
+   5. OOP — Piece & Player
    ========================================================================= */
 
 class Piece {
-  /**
-   * p (progress):  -1 = di markas
-   *                 0..50  = jalur utama
-   *                 51..55 = home column
-   *                 56     = FINISH
-   */
+  /** p: -1 markas · 0..50 jalur utama · 51..55 home column · 56 FINISH */
   constructor(player, slot) {
     this.player = player;
     this.color  = player.color;
@@ -242,9 +367,7 @@ class Piece {
   get onTrack()   { return this.p >= 0 && this.p <= 50; }
   get inHomeRun() { return this.p >= 51 && this.p < CONFIG.stepsToFinish; }
   get trackIndex(){ return this.onTrack ? (START_INDEX[this.color] + this.p) % TRACK.length : -1; }
-  get onSafeCell(){ return this.onTrack && SAFE_INDEXES.has(this.trackIndex); }
 
-  /** koordinat papan [x,y] untuk nilai progress tertentu */
   coordAt(p) {
     if (p < 0)  return YARD_SLOTS[this.color][this.slot];
     if (p <= 50) { const [x, y] = TRACK[(START_INDEX[this.color] + p) % TRACK.length]; return [x, y]; }
@@ -256,21 +379,23 @@ class Piece {
 
 class Player {
   constructor(color, kind) {
-    this.color   = color;                 // red | green | yellow | blue
-    this.kind    = kind;                  // 'human' | 'bot'
-    this.faction = FACTIONS[color];
-    this.pieces  = Array.from({ length: CONFIG.piecesPerPlayer }, (_, i) => new Piece(this, i));
+    this.color    = color;
+    this.kind     = kind;                 // 'human' | 'bot'
+    this.faction  = FACTIONS[color];
+    this.pieces   = Array.from({ length: CONFIG.piecesPerPlayer }, (_, i) => new Piece(this, i));
+    this.lastFace = null;                 // hasil lemparan terakhir (untuk dadu di pod)
   }
-  get isBot()      { return this.kind === 'bot'; }
+  get isBot()        { return this.kind === 'bot'; }
   get finishedCount(){ return this.pieces.filter(p => p.finished).length; }
-  get hasWon()     { return this.finishedCount === CONFIG.piecesPerPlayer; }
-  get piecesInBase(){ return this.pieces.filter(p => p.inBase); }
-  get piecesOnBoard(){ return this.pieces.filter(p => p.onTrack || p.inHomeRun); }
+  get hasWon()       { return this.finishedCount === CONFIG.piecesPerPlayer; }
+  get piecesInBase() { return this.pieces.filter(p => p.inBase); }
+  /** true selama belum satu pun bidak keluar markas */
+  get allInBase()    { return this.pieces.every(p => p.inBase); }
 }
 
 
 /* =========================================================================
-   5. ENGINE — LudQueenGame
+   6. ENGINE — LudQueenGame
    ========================================================================= */
 
 const $  = (sel, root = document) => root.querySelector(sel);
@@ -279,6 +404,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function weightedPick(weights) {
   const entries = Object.entries(weights).filter(([, w]) => w > 0);
+  if (!entries.length) return Object.keys(weights)[0];
   const total = entries.reduce((s, [, w]) => s + w, 0);
   let r = Math.random() * total;
   for (const [k, w] of entries) { if ((r -= w) <= 0) return k; }
@@ -292,14 +418,29 @@ class LudQueenGame {
     this.mode  = 'classic';
     this.players = [];
     this.turnIdx = 0;
-    this.state = 'idle';        // idle | rolling | animating | select-move | select-target | select-shield | over
+    this.state = 'idle';   // idle | rolling | animating | select-move | select-target | select-shield | over
     this.pendingMoves = [];
     this.sixStreak = 0;
     this.currentFace = null;
+    this.canRoll = false;
     this._boardBuilt = false;
+    this.bindDice();
   }
 
   /* ---------------- setup ---------------- */
+
+  bindDice() {
+    for (const color of PLAY_ORDER) {
+      const die = this.dom.dieOf[color];
+      if (!die) continue;
+      die.addEventListener('click', () => {
+        if (!this.canRoll) return;
+        if (!this.current || this.current.color !== color) return;
+        this.audio.click();
+        this.doRoll();
+      });
+    }
+  }
 
   init(mode, slots) {
     this.mode = mode;
@@ -314,15 +455,17 @@ class LudQueenGame {
     if (!this._boardBuilt) { this.buildBoard(); this._boardBuilt = true; }
     this.buildPieces();
     this.buildScoreboard();
-    this.renderChaosLegend();
+    this.renderLegend();
     this.dom.logList.innerHTML = '';
     this.dom.modalWin.hidden = true;
     this.log(`Mode ${mode === 'chaos' ? 'Ludo Chaos 🌀' : 'Ludo Classic 🎲'} dimulai!`, true);
+    if (mode === 'chaos') {
+      this.log('Selama belum ada bidak keluar markas, dadu hanya keluar angka normal.');
+    }
     this.renderAll();
     this.beginTurn();
   }
 
-  /** menggambar 15x15 petak + penanda jalur */
   buildBoard() {
     const grid = this.dom.boardGrid;
     grid.innerHTML = '';
@@ -372,8 +515,9 @@ class LudQueenGame {
         el.dataset.color = piece.color;
         el.dataset.id = piece.id;
         el.innerHTML =
-          `<div class="piece-inner piece-art ${player.faction.spriteClass}">` +
-            `<span class="piece-emoji">${player.faction.emoji}</span>` +
+          `<div class="piece-inner">` +
+            `<i class="piece-base"></i>` +
+            `<i class="piece-sprite piece-art ${player.faction.spriteClass}"></i>` +
             `<span class="shield-badge">🛡️</span>` +
           `</div>` +
           `<span class="cloud">☁️</span>`;
@@ -387,22 +531,27 @@ class LudQueenGame {
   buildScoreboard() {
     this.dom.scoreboard.innerHTML = this.players.map(p => `
       <div class="score-row" data-color="${p.color}">
-        <span class="score-dot ${p.color}"></span>
+        <i class="score-avatar piece-art ${p.faction.spriteClass}"></i>
         <span class="score-name">${p.faction.name}</span>
         <span class="score-tag">${p.isBot ? 'BOT' : 'YOU'}</span>
         <span class="score-pips">${'<i class="score-pip"></i>'.repeat(CONFIG.piecesPerPlayer)}</span>
       </div>`).join('');
   }
 
-  renderChaosLegend() {
+  /** legenda peluang dadu di panel samping (khusus mode chaos) */
+  renderLegend() {
     const box = this.dom.chaosLegend;
     if (this.mode !== 'chaos') { box.hidden = true; return; }
     box.hidden = false;
-    const w = CHAOS_DICE_CONFIG.faceWeight;
-    const total = Object.values(w).reduce((a, b) => a + b, 0);
-    this.dom.chaosLegendList.innerHTML = Object.keys(w).map(k => {
+    const rows = [
+      ['number', normalPercent()],
+      ['x2', DICE_PROB.special.x2],
+      ['attack', DICE_PROB.special.attack],
+      ['shield', DICE_PROB.special.shield],
+      ['angel', DICE_PROB.special.angel],
+    ];
+    this.dom.chaosLegendList.innerHTML = rows.map(([k, pct]) => {
       const m = CHAOS_FACE_META[k];
-      const pct = Math.round((w[k] / total) * 100);
       return `<li><span>${m.icon}</span><b>${m.label}</b><span class="lg-pct">${pct}%</span></li>`;
     }).join('');
   }
@@ -411,7 +560,7 @@ class LudQueenGame {
 
   get current()  { return this.players[this.turnIdx]; }
   allPieces()    { return this.players.flatMap(p => p.pieces); }
-  isHumanTurn()  { return !this.current.isBot; }
+  wait(ms)       { return sleep(Math.max(0, ms * CONFIG.animationScale)); }
 
   log(text, hot = false) {
     const li = document.createElement('li');
@@ -433,9 +582,6 @@ class LudQueenGame {
 
   hint(text) { this.dom.actionHint.textContent = text; }
 
-  /** jeda animasi yang menghormati CONFIG.animationScale */
-  wait(ms) { return sleep(Math.max(0, ms * CONFIG.animationScale)); }
-
   /* ---------------- RENDER ---------------- */
 
   renderAll() {
@@ -443,10 +589,10 @@ class LudQueenGame {
     this.renderTurnBanner();
     this.renderScoreboard();
     this.renderYardGlow();
+    this.renderPods();
   }
 
   renderPieces() {
-    /* hitung offset tumpukan agar bidak di petak sama tidak saling tutup */
     const groups = new Map();
     for (const piece of this.allPieces()) {
       const [x, y] = piece.coord;
@@ -460,21 +606,16 @@ class LudQueenGame {
         const spread = n > 1 ? 0.42 : 0;
         const dx = spread * (i - (n - 1) / 2);
         const dy = n > 1 ? 0.14 * (i % 2 ? 1 : -1) : 0;
-        /* bidak bertumpuk dikecilkan agar tidak saling menutupi area kliknya */
         piece.el.classList.toggle('is-stacked', n > 1);
         piece.el.style.zIndex = String(2 + i);
-        this.placePiece(piece, dx, dy);
+        const [x, y] = piece.coord;
+        this.setPiecePos(piece, x + dx, y + dy);
       });
     }
     for (const piece of this.allPieces()) {
       piece.el.classList.toggle('has-shield', piece.shield);
       piece.el.classList.toggle('is-finished', piece.finished);
     }
-  }
-
-  placePiece(piece, dx = 0, dy = 0) {
-    const [x, y] = piece.coord;
-    this.setPiecePos(piece, x + dx, y + dy);
   }
 
   setPiecePos(piece, x, y) {
@@ -484,18 +625,15 @@ class LudQueenGame {
 
   renderTurnBanner() {
     const p = this.current;
-    const b = this.dom.turnBanner;
-    b.className = 'turn-banner t-' + p.color;
-    this.dom.turnAvatar.textContent = p.faction.emoji;
+    this.dom.turnBanner.className = 'turn-banner t-' + p.color;
     this.dom.turnAvatar.className = 'turn-avatar piece-art ' + p.faction.spriteClass;
-    this.dom.turnName.textContent = `${p.faction.name}`;
+    this.dom.turnName.textContent = p.faction.name;
     this.dom.turnRole.textContent = p.isBot ? `${p.faction.base} · BOT` : `${p.faction.base} · giliranmu`;
   }
 
   renderScoreboard() {
     $$('.score-row', this.dom.scoreboard).forEach(row => {
-      const color = row.dataset.color;
-      const player = this.players.find(p => p.color === color);
+      const player = this.players.find(p => p.color === row.dataset.color);
       row.classList.toggle('is-turn', player === this.current);
       $$('.score-pip', row).forEach((pip, i) => pip.classList.toggle('done', i < player.finishedCount));
     });
@@ -509,53 +647,96 @@ class LudQueenGame {
     });
   }
 
-  clearHighlights() {
-    for (const piece of this.allPieces()) {
-      piece.el.classList.remove('is-selectable', 'is-target');
+  /* ---- dadu di 4 sisi pemain ---- */
+
+  renderPods() {
+    for (const color of PLAY_ORDER) {
+      const pod = this.dom.podOf[color];
+      if (!pod) continue;
+      const player = this.players.find(p => p.color === color);
+      pod.classList.toggle('is-out', !player);
+      pod.classList.toggle('is-turn', !!player && player === this.current);
+      if (!player) { this.renderDie(color, null); continue; }
+      const isTurn = player === this.current;
+      this.renderDie(color, player.lastFace, {
+        stale: !isTurn,
+        live: isTurn && this.canRoll && !player.isBot,
+      });
     }
   }
 
+  /** menggambar satu dadu: mata 1-6 sebagai titik, sisi chaos sebagai ikon */
+  renderDie(color, face, opts = {}) {
+    const die = this.dom.dieOf[color];
+    if (!die) return;
+    die.className = 'die';
+    const pips = $$('.die-pips i', die);
+    const special = $('.die-special', die);
+
+    if (!face) {
+      pips.forEach(p => p.classList.remove('on'));
+      special.innerHTML = '';
+    } else if (face.type === 'number') {
+      const on = new Set(PIP_MAP[face.base] || []);
+      pips.forEach((p, i) => p.classList.toggle('on', on.has(i)));
+      special.innerHTML = '';
+    } else {
+      const m = CHAOS_FACE_META[face.type];
+      die.classList.add('is-special', 'face-' + face.type);
+      special.innerHTML = face.type === 'x2'
+        ? `${m.icon}<b>${face.base}×2</b>`
+        : `${m.icon}<b>${m.short}</b>`;
+    }
+
+    if (opts.stale)   die.classList.add('is-stale');
+    if (opts.live)    die.classList.add('is-live');
+    if (opts.rolling) die.classList.add('is-rolling');
+  }
+
+  clearHighlights() {
+    for (const piece of this.allPieces()) piece.el.classList.remove('is-selectable', 'is-target');
+  }
+
   setRollEnabled(on) {
+    this.canRoll = on;
     this.dom.btnRoll.disabled = !on;
+    this.renderPods();
   }
 
   /* ---------------- DADU ---------------- */
 
-  /** @returns {{type:string, steps:number, base:number}} */
-  rollFace() {
+  /**
+   * Melempar satu sisi dadu.
+   * Ludo Classic memakai dadu adil 1-6.
+   * Ludo Chaos memakai peluang dari DICE_PROB — kecuali saat pemain belum
+   * punya satu pun bidak di luar markas: sisi spesial dikunci, hanya angka
+   * normal yang keluar supaya efeknya tidak terbuang percuma.
+   * @returns {{type:string, base:number, steps:number}}
+   */
+  rollFace(player) {
+    const numberFace = () => {
+      const n = Number(weightedPick(DICE_PROB.numberWeight));
+      return { type: 'number', base: n, steps: n };
+    };
+
     if (this.mode === 'classic') {
-      const n = Number(weightedPick(CHAOS_DICE_CONFIG.numberWeight));
-      // classic memakai dadu uniform murni
-      const uniform = 1 + Math.floor(Math.random() * 6);
-      return { type: 'number', base: uniform, steps: uniform, _unused: n };
-    }
-    const type = weightedPick(CHAOS_DICE_CONFIG.faceWeight);
-    if (type === 'number') {
-      const n = Number(weightedPick(CHAOS_DICE_CONFIG.numberWeight));
+      const n = 1 + Math.floor(Math.random() * 6);
       return { type: 'number', base: n, steps: n };
     }
-    if (type === 'x2') {
-      const n = Number(weightedPick(CHAOS_DICE_CONFIG.x2NumberWeight));
-      return { type: 'x2', base: n, steps: n * 2 };
-    }
-    return { type, base: 0, steps: 0 };
-  }
+    if (player.allInBase) return numberFace();
 
-  renderDiceFace(face) {
-    const d = this.dom.dice, f = this.dom.diceFace;
-    d.className = 'dice';
-    f.className = 'dice-face';
-    if (!face) { f.textContent = '🎲'; return; }
-    if (face.type === 'number') {
-      f.classList.add('is-number');
-      f.textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][face.base - 1];
-    } else if (face.type === 'x2') {
-      d.classList.add('face-x2');
-      f.innerHTML = `☁️<br><span style="font-size:11px">${face.base}×2</span>`;
-    } else {
-      d.classList.add('face-' + face.type);
-      f.textContent = CHAOS_FACE_META[face.type].icon;
+    let roll = Math.random() * 100, acc = 0;
+    for (const key of ['x2', 'attack', 'angel', 'shield']) {
+      acc += DICE_PROB.special[key];
+      if (roll < acc) {
+        if (key === 'x2') {
+          const n = Number(weightedPick(DICE_PROB.numberWeight));
+          return { type: 'x2', base: n, steps: n * 2 };
+        }
+        return { type: key, base: 0, steps: 0 };
+      }
     }
+    return numberFace();
   }
 
   /* ---------------- ALUR GILIRAN ---------------- */
@@ -563,18 +744,22 @@ class LudQueenGame {
   beginTurn() {
     if (this.state === 'over') return;
     this.clearHighlights();
-    this.renderAll();
     this.state = 'idle';
     this.currentFace = null;
-    this.renderDiceFace(null);
+    this.renderAll();
 
-    if (this.current.isBot) {
+    const player = this.current;
+    const lockedToNumbers = this.mode === 'chaos' && player.allInBase;
+
+    if (player.isBot) {
       this.setRollEnabled(false);
-      this.hint(`${this.current.faction.name} (BOT) sedang berpikir...`);
+      this.hint(`${player.faction.name} (BOT) sedang berpikir...`);
       setTimeout(() => this.doRoll(), CONFIG.botThinkMs * CONFIG.animationScale);
     } else {
       this.setRollEnabled(true);
-      this.hint('Lempar dadu untuk bergerak.');
+      this.hint(lockedToNumbers
+        ? 'Semua bidak masih di markas — dadu normal saja. Butuh angka 6 untuk keluar.'
+        : 'Ketuk dadumu untuk melempar.');
     }
   }
 
@@ -584,21 +769,22 @@ class LudQueenGame {
     this.setRollEnabled(false);
     this.clearHighlights();
 
+    const player = this.current;
+    const die = this.dom.dieOf[player.color];
+
     this.audio.rolling();
-    this.dom.dice.classList.add('is-rolling');
-    // preview acak biar terasa berputar
+    if (die) die.classList.add('is-rolling');
     const previewTimer = setInterval(() => {
-      this.renderDiceFace({ type:'number', base: 1 + Math.floor(Math.random()*6) });
-      this.dom.dice.classList.add('is-rolling');
+      this.renderDie(player.color, { type: 'number', base: 1 + Math.floor(Math.random() * 6) }, { rolling: true });
     }, Math.max(16, 80 * CONFIG.animationScale));
 
     await this.wait(CONFIG.diceSpinMs);
     clearInterval(previewTimer);
-    this.dom.dice.classList.remove('is-rolling');
 
-    const face = this.rollFace();
+    const face = this.rollFace(player);
     this.currentFace = face;
-    this.renderDiceFace(face);
+    player.lastFace = face;
+    this.renderDie(player.color, face);
     this.audio.diceStop();
 
     await this.wait(180);
@@ -609,7 +795,6 @@ class LudQueenGame {
     const player = this.current;
     const fname = player.faction.name;
 
-    /* --- aturan 3x enam beruntun --- */
     if (face.type === 'number' && face.base === 6) {
       this.sixStreak++;
       if (this.sixStreak >= CONFIG.maxConsecutiveSixes) {
@@ -626,18 +811,13 @@ class LudQueenGame {
 
     switch (face.type) {
       case 'number':
-      case 'x2':
-        return this.resolveNumberFace(face);
-      case 'angel':
-        return this.resolveAngel();
-      case 'attack':
-        return this.resolveAttack();
-      case 'shield':
-        return this.resolveShield();
+      case 'x2':     return this.resolveNumberFace(face);
+      case 'angel':  return this.resolveAngel();
+      case 'attack': return this.resolveAttack();
+      case 'shield': return this.resolveShield();
     }
   }
 
-  /* ---- face angka / x2 ---- */
   async resolveNumberFace(face) {
     const player = this.current;
     const moves = this.getLegalMoves(player, face);
@@ -677,29 +857,24 @@ class LudQueenGame {
     moves.forEach(m => m.piece.el.classList.add('is-selectable'));
   }
 
-  /**
-   * Daftar langkah legal.
-   * @returns {{piece:Piece, from:number, to:number, releases:boolean}[]}
-   */
+  /** @returns {{piece:Piece, from:number, to:number, releases:boolean}[]} */
   getLegalMoves(player, face) {
     const steps = face.steps;
     const moves = [];
     let releaseOffered = false;
-    const seenProgress = new Set();   // hindari opsi kembar di petak yang sama
+    const seenProgress = new Set();
     for (const piece of player.pieces) {
       if (piece.finished) continue;
       if (piece.inBase) {
-        /* Keluar markas hanya jika total langkah tepat 6.
-           Semua bidak di markas identik, jadi cukup tawarkan SATU pilihan
-           agar pemain tidak disodori 4 opsi yang sama persis. */
+        /* Keluar markas hanya jika total langkah tepat 6. Semua bidak di
+           markas identik, jadi cukup tawarkan SATU pilihan. */
         if (steps === 6 && !releaseOffered) {
           moves.push({ piece, from: -1, to: 0, releases: true });
           releaseOffered = true;
         }
         continue;
       }
-      /* dua bidak sewarna di petak yang sama = pilihan yang identik hasilnya,
-         cukup tawarkan satu supaya tidak saling menutupi saat diklik */
+      /* dua bidak sewarna di petak yang sama = pilihan identik hasilnya */
       if (seenProgress.has(piece.p)) continue;
       const to = piece.p + steps;
       if (to <= CONFIG.stepsToFinish) {
@@ -710,7 +885,6 @@ class LudQueenGame {
     return moves;
   }
 
-  /* ---- eksekusi langkah ---- */
   async executeMove(move, face) {
     this.state = 'animating';
     this.clearHighlights();
@@ -728,18 +902,16 @@ class LudQueenGame {
     }
 
     const result = await this.resolveLanding(piece);
-
     if (this.checkWin(piece.player)) return;
 
     let extra = result.extraTurn;
     if (face.type === 'number' && face.base === 6 && CONFIG.extraTurnOnSix) extra = true;
-    if (move.releases) extra = true;   // keluar markas dengan 6 -> lempar lagi
+    if (move.releases) extra = true;
 
     await this.wait(200);
     this.endTurn(extra);
   }
 
-  /** animasi lompat/naik awan petak demi petak */
   async animateTravel(piece, from, to, viaCloud) {
     piece.el.classList.add('is-moving');
     if (viaCloud) { piece.el.classList.add('on-cloud'); this.audio.cloud(); }
@@ -762,11 +934,9 @@ class LudQueenGame {
     this.renderPieces();
   }
 
-  /** cek tangkapan / finish setelah mendarat */
   async resolveLanding(piece) {
     const out = { captured: false, extraTurn: false, shieldBlocked: false };
 
-    /* --- sampai HOME FINISH --- */
     if (piece.finished) {
       if (piece.shield) {
         piece.shield = false;
@@ -790,7 +960,6 @@ class LudQueenGame {
 
     const victims = this.allPieces().filter(o =>
       o.color !== piece.color && o.onTrack && o.trackIndex === idx);
-
     if (victims.length === 0) { this.renderPieces(); return out; }
 
     for (const victim of victims) {
@@ -821,11 +990,7 @@ class LudQueenGame {
     return out;
   }
 
-  sendHome(piece) {
-    piece.p = -1;
-    piece.shield = false;
-    this.renderPieces();
-  }
+  sendHome(piece) { piece.p = -1; piece.shield = false; this.renderPieces(); }
 
   checkWin(player) {
     if (!player.hasWon) return false;
@@ -834,6 +999,7 @@ class LudQueenGame {
     this.setRollEnabled(false);
     this.audio.win();
     this.log(`👑 ${player.faction.name} MEMENANGKAN pertempuran!`, true);
+    this.dom.winAvatar.className = 'win-avatar piece-art ' + player.faction.spriteClass;
     this.dom.winTitle.textContent = `${player.faction.name} Menang!`;
     this.dom.winSub.textContent = `${player.faction.base} merebut singgasana LUDQueen.`;
     this.dom.modalWin.hidden = false;
@@ -846,9 +1012,8 @@ class LudQueenGame {
     if (!extraTurn) {
       this.sixStreak = 0;
       let guard = 0;
-      do {
-        this.turnIdx = (this.turnIdx + 1) % this.players.length;
-      } while (this.current.hasWon && ++guard < this.players.length);
+      do { this.turnIdx = (this.turnIdx + 1) % this.players.length; }
+      while (this.current.hasWon && ++guard < this.players.length);
     } else {
       this.hint('Giliran ekstra!');
     }
@@ -863,7 +1028,6 @@ class LudQueenGame {
     this.audio.angel();
     this.toast('DADU ANGEL 👼 — seluruh pasukan dipanggil keluar!');
     this.log(`${player.faction.name} mendapat Dadu Angel 👼`, true);
-
     this.spawnLabel(YARD_CENTER[player.color], '👼 ANGEL CALL');
     await this.wait(500);
 
@@ -877,7 +1041,6 @@ class LudQueenGame {
         this.audio.hop();
         await this.wait(190);
       }
-      /* bidak lawan yang berdiri di petak start ikut tersapu */
       const startIdx = START_INDEX[player.color];
       if (!SAFE_INDEXES.has(startIdx)) {
         const victims = this.allPieces().filter(o => o.color !== player.color && o.onTrack && o.trackIndex === startIdx);
@@ -888,7 +1051,7 @@ class LudQueenGame {
 
     this.renderPieces();
     await this.wait(450);
-    this.endTurn(true);   // giliran ekstra
+    this.endTurn(true);
   }
 
   /* ---------------- FACE: ATTACK 🎯 ---------------- */
@@ -906,9 +1069,7 @@ class LudQueenGame {
 
     if (player.isBot) {
       await this.wait(500);
-      /* bot memilih bidak lawan paling jauh progres-nya & tanpa perisai */
-      const sorted = [...targets].sort((a, b) =>
-        (a.shield === b.shield) ? b.p - a.p : (a.shield ? 1 : -1));
+      const sorted = [...targets].sort((a, b) => (a.shield === b.shield) ? b.p - a.p : (a.shield ? 1 : -1));
       return this.performAttack(sorted[0]);
     }
 
@@ -931,7 +1092,6 @@ class LudQueenGame {
 
     this.toast(`${fac.name} melepaskan ${fac.projectileName}!`);
     this.log(`${fac.name} menembakkan ${fac.projectileName} ke ${target.player.faction.name}.`, true);
-
     await this.playProjectileFx(attacker.color, target.coord, fac);
 
     if (target.shield) {
@@ -970,8 +1130,7 @@ class LudQueenGame {
 
     if (player.isBot) {
       await this.wait(450);
-      const best = [...candidates].sort((a, b) => b.p - a.p)[0];
-      return this.applyShield(best);
+      return this.applyShield([...candidates].sort((a, b) => b.p - a.p)[0]);
     }
 
     this.state = 'select-shield';
@@ -1015,7 +1174,6 @@ class LudQueenGame {
       if (!piece.el.classList.contains('is-selectable')) { this.audio.deny(); return; }
       this.audio.click();
       this.applyShield(piece);
-      return;
     }
   }
 
@@ -1033,10 +1191,9 @@ class LudQueenGame {
   scoreMove(move, face) {
     const { piece, to, releases } = move;
     let score = 0;
-
     if (releases) score += 70;
     if (to === CONFIG.stepsToFinish) score += 95;
-    if (to > 50 && to < CONFIG.stepsToFinish) score += 45;   // masuk home column
+    if (to > 50 && to < CONFIG.stepsToFinish) score += 45;
 
     if (to <= 50) {
       const idx = (START_INDEX[piece.color] + to) % TRACK.length;
@@ -1048,7 +1205,6 @@ class LudQueenGame {
       }
       if (SAFE_INDEXES.has(idx)) score += 25;
 
-      /* hindari mendarat tepat di depan lawan (1-6 petak di belakang) */
       let danger = 0;
       for (const o of this.allPieces()) {
         if (o.color === piece.color || !o.onTrack) continue;
@@ -1058,7 +1214,7 @@ class LudQueenGame {
       if (!SAFE_INDEXES.has(idx) && !piece.shield) score -= danger * 14;
     }
 
-    score += to * 0.6;                          // dorong maju
+    score += to * 0.6;
     if (piece.shield) score += 6;
     if (face.type === 'x2') score += 4;
     return score;
@@ -1093,7 +1249,6 @@ class LudQueenGame {
     setTimeout(() => el.remove(), 1200);
   }
 
-  /** efek serangan saat menangkap lawan lewat gerakan biasa */
   async playCaptureFx(attacker, victim) {
     const fac = attacker.player.faction;
     this.audio.capture();
@@ -1106,7 +1261,6 @@ class LudQueenGame {
     await this.wait(420);
   }
 
-  /** proyektil dari markas penyerang menuju target (Dadu Attack) */
   playProjectileFx(attackerColor, targetCoord, fac) {
     return new Promise(resolve => {
       const origin = YARD_CENTER[attackerColor];
@@ -1124,7 +1278,6 @@ class LudQueenGame {
         el.style.transitionDelay = (i * 55) + 'ms';
         this.dom.fxLayer.appendChild(el);
 
-        // paksa reflow lalu terbangkan
         void el.offsetWidth;
         const dest = this.fxPos([targetCoord[0] + spreadX * 0.25, targetCoord[1] + spreadY * 0.25]);
         el.style.left = dest.left;
@@ -1143,8 +1296,10 @@ class LudQueenGame {
 
 
 /* =========================================================================
-   6. UI / SCREEN FLOW
+   7. UI / SCREEN FLOW
    ========================================================================= */
+
+installSpriteStyles();
 
 const audio = new AudioFX();
 
@@ -1152,6 +1307,7 @@ const dom = {
   screens: {
     title: $('#screen-title'),
     menu:  $('#screen-menu'),
+    prob:  $('#screen-prob'),
     setup: $('#screen-setup'),
     game:  $('#screen-game'),
   },
@@ -1159,8 +1315,6 @@ const dom = {
   boardGrid:    $('#board-grid'),
   pieceLayer:   $('#piece-layer'),
   fxLayer:      $('#fx-layer'),
-  dice:         $('#dice'),
-  diceFace:     $('#dice-face'),
   btnRoll:      $('#btn-roll'),
   actionHint:   $('#action-hint'),
   turnBanner:   $('#turn-banner'),
@@ -1175,8 +1329,15 @@ const dom = {
   modalWin:     $('#modal-win'),
   winTitle:     $('#win-title'),
   winSub:       $('#win-sub'),
+  winAvatar:    $('#win-avatar'),
   setupModeLabel: $('#setup-mode-label'),
+  podOf: {},
+  dieOf: {},
 };
+for (const color of PLAY_ORDER) {
+  dom.podOf[color] = $(`.pod[data-color="${color}"]`);
+  dom.dieOf[color] = $(`.die[data-color="${color}"]`);
+}
 
 const game = new LudQueenGame(dom, audio);
 
@@ -1190,19 +1351,115 @@ function showScreen(name) {
 }
 
 /* --- title --- */
-dom.screens.title.addEventListener('click', () => {
-  audio.click();
-  showScreen('menu');
-});
+dom.screens.title.addEventListener('click', () => { audio.click(); showScreen('menu'); });
 
 /* --- menu --- */
 $$('.mode-btn').forEach(btn => btn.addEventListener('click', () => {
   audio.click();
   selectedMode = btn.dataset.mode;
   dom.setupModeLabel.textContent = selectedMode === 'chaos' ? 'Ludo Chaos 🌀' : 'Ludo Classic 🎲';
-  showScreen('setup');
+  if (selectedMode === 'chaos') { renderProbScreen(); showScreen('prob'); }
+  else showScreen('setup');
 }));
 $('#btn-menu-back').addEventListener('click', () => { audio.click(); showScreen('title'); });
+
+/* ---------------------------------------------------------------------
+   Layar pengaturan probabilitas dadu chaos
+   --------------------------------------------------------------------- */
+
+const probSummaryEl = $('#prob-summary');
+const probCustomEl  = $('#prob-custom');
+const probNoteEl    = $('#prob-note');
+const numGridEl     = $('#num-grid');
+
+/* baris slider bobot tiap mata dadu, dibangun sekali */
+numGridEl.innerHTML = [1,2,3,4,5,6].map(n => `
+  <div class="num-row" data-num="${n}">
+    <span class="nr-die">${n}</span>
+    <input type="range" min="0" max="20" step="1" data-num="${n}">
+    <span class="nr-val" data-numval="${n}">17%</span>
+  </div>`).join('');
+
+function renderProbScreen() {
+  /* tab preset */
+  $$('.preset-tab').forEach(t => t.classList.toggle('is-on', t.dataset.preset === DICE_PROB.preset));
+  probCustomEl.hidden = DICE_PROB.preset !== 'custom';
+
+  /* ringkasan peluang */
+  const rows = [
+    ['number', normalPercent()],
+    ['x2', DICE_PROB.special.x2],
+    ['attack', DICE_PROB.special.attack],
+    ['shield', DICE_PROB.special.shield],
+    ['angel', DICE_PROB.special.angel],
+  ];
+  probSummaryEl.innerHTML = rows.map(([k, pct]) => {
+    const m = CHAOS_FACE_META[k];
+    return `<li><span>${m.icon}</span><b>${m.label}</b>` +
+           `<span class="bar"><i style="width:${pct}%"></i></span>` +
+           `<span class="pv">${pct}%</span></li>`;
+  }).join('');
+
+  /* slider sisi spesial */
+  $$('.slider-row input[type=range]').forEach(inp => {
+    inp.value = DICE_PROB.special[inp.dataset.key];
+    $(`[data-val="${inp.dataset.key}"]`).textContent = DICE_PROB.special[inp.dataset.key] + '%';
+  });
+  probNoteEl.textContent = `Sisa ${normalPercent()}% menjadi dadu normal (angka 1-6).`;
+  probNoteEl.classList.toggle('is-warn', normalPercent() <= 20);
+
+  /* slider bobot angka */
+  const total = Object.values(DICE_PROB.numberWeight).reduce((a, b) => a + b, 0) || 1;
+  for (let n = 1; n <= 6; n++) {
+    $(`input[data-num="${n}"]`).value = DICE_PROB.numberWeight[n];
+    $(`[data-numval="${n}"]`).textContent = Math.round(DICE_PROB.numberWeight[n] / total * 100) + '%';
+  }
+}
+
+$$('.preset-tab').forEach(tab => tab.addEventListener('click', () => {
+  audio.click();
+  DICE_PROB.preset = tab.dataset.preset;
+  if (DICE_PROB.preset === 'default') {
+    DICE_PROB.special = { ...DEFAULT_SPECIAL_PROB };
+    DICE_PROB.numberWeight = { ...DEFAULT_NUMBER_WEIGHT };
+  }
+  renderProbScreen();
+}));
+
+$$('.slider-row input[type=range]').forEach(inp => inp.addEventListener('input', () => {
+  const key = inp.dataset.key;
+  let value = Number(inp.value);
+  /* jaga agar dadu normal tidak pernah habis */
+  const others = specialTotal() - DICE_PROB.special[key];
+  if (others + value > MAX_SPECIAL_TOTAL) {
+    value = MAX_SPECIAL_TOTAL - others;
+    inp.value = value;
+  }
+  DICE_PROB.special[key] = value;
+  DICE_PROB.preset = 'custom';
+  renderProbScreen();
+}));
+
+$$('input[data-num]').forEach(inp => inp.addEventListener('input', () => {
+  const n = Number(inp.dataset.num);
+  DICE_PROB.numberWeight[n] = Number(inp.value);
+  /* semua bobot nol tidak masuk akal — kembalikan yang barusan diubah */
+  if (Object.values(DICE_PROB.numberWeight).every(w => w === 0)) {
+    DICE_PROB.numberWeight[n] = 1;
+    inp.value = 1;
+  }
+  DICE_PROB.preset = 'custom';
+  renderProbScreen();
+}));
+
+$('#btn-prob-reset').addEventListener('click', () => {
+  audio.click();
+  DICE_PROB.special = { ...DEFAULT_SPECIAL_PROB };
+  DICE_PROB.numberWeight = { ...DEFAULT_NUMBER_WEIGHT };
+  renderProbScreen();
+});
+$('#btn-prob-back').addEventListener('click', () => { audio.click(); showScreen('menu'); });
+$('#btn-prob-next').addEventListener('click', () => { audio.click(); showScreen('setup'); });
 
 /* --- setup --- */
 function refreshSlots() {
@@ -1218,11 +1475,13 @@ function refreshSlots() {
 }
 $$('.slot-toggle').forEach(btn => btn.addEventListener('click', () => {
   audio.click();
-  const color = btn.dataset.color;
-  slotState[color] = SLOT_CYCLE[slotState[color]];
+  slotState[btn.dataset.color] = SLOT_CYCLE[slotState[btn.dataset.color]];
   refreshSlots();
 }));
-$('#btn-setup-back').addEventListener('click', () => { audio.click(); showScreen('menu'); });
+$('#btn-setup-back').addEventListener('click', () => {
+  audio.click();
+  showScreen(selectedMode === 'chaos' ? 'prob' : 'menu');
+});
 $('#btn-start-game').addEventListener('click', () => {
   audio.click();
   showScreen('game');
@@ -1258,7 +1517,7 @@ $('#btn-to-menu').addEventListener('click', () => {
   showScreen('menu');
 });
 
-/* keyboard: spasi untuk lempar dadu */
+/* spasi untuk lempar dadu */
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && dom.screens.game.classList.contains('is-active')) {
     e.preventDefault();
@@ -1267,4 +1526,4 @@ window.addEventListener('keydown', e => {
 });
 
 /* debug hook */
-window.LUDQUEEN = { game, CONFIG, CHAOS_DICE_CONFIG, TRACK, START_INDEX, HOME_PATH };
+window.LUDQUEEN = { game, CONFIG, DICE_PROB, TRACK, START_INDEX, HOME_PATH, SPRITES };
