@@ -3,137 +3,280 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#f7f8fa">
+<meta name="theme-color" content="#2b1d3a">
 <title>LUDQueen 👑</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
 
-  <!-- ==================== 1. TITLE ==================== -->
+  <!-- ============================================================
+       SCREEN 1 — TITLE
+       ============================================================ -->
   <section id="screen-title" class="screen is-active">
+    <div class="title-stars" aria-hidden="true"></div>
     <div class="title-wrap">
       <div class="title-crown">👑</div>
-      <h1 class="game-title"><span class="tt-a">LUD</span><span class="tt-b">Queen</span></h1>
-      <p class="title-sub">Knight · Elf · Witch · Dragon</p>
+      <h1 class="game-title">
+        <span class="tt tt-a">LUD</span><span class="tt tt-b">Queen</span>
+      </h1>
+      <p class="title-sub">Medieval Ludo Battle</p>
+      <div class="title-cast">
+        <i class="cast-art piece-art piece-knight"></i>
+        <i class="cast-art piece-art piece-elf"></i>
+        <i class="cast-art piece-art piece-witch"></i>
+        <i class="cast-art piece-art piece-dragon"></i>
+      </div>
       <p id="tap-to-play" class="tap-to-play">tap to play</p>
     </div>
   </section>
 
-  <!-- ==================== 2. MAIN MENU ==================== -->
+  <!-- ============================================================
+       SCREEN 2 — MAIN MENU
+       ============================================================ -->
   <section id="screen-menu" class="screen">
-    <div class="sheet">
-      <h2 class="sheet-title">Pilih Mode</h2>
+    <div class="panel menu-panel">
+      <h2 class="panel-title">Pilih Mode</h2>
 
-      <button class="mode-btn" data-mode="classic">
+      <button class="mode-btn mode-classic" data-mode="classic">
         <span class="mode-icon">🎲</span>
-        <span class="mode-text"><strong>Ludo Classic</strong><small>Aturan ludo standar · 2–4 pemain</small></span>
+        <span class="mode-text">
+          <strong>Ludo Classic</strong>
+          <small>Aturan ludo standar · 2–4 pemain</small>
+        </span>
       </button>
 
       <button class="mode-btn mode-chaos" data-mode="chaos">
         <span class="mode-icon">🌀</span>
-        <span class="mode-text"><strong>Ludo Chaos</strong><small>Dadu spesial · peluang bisa diatur sendiri</small></span>
+        <span class="mode-text">
+          <strong>Ludo Chaos</strong>
+          <small>Dadu Gacha: x2 · Attack · Shield · Angel</small>
+        </span>
       </button>
+
+      <button class="link-btn" id="btn-menu-back">← kembali</button>
     </div>
   </section>
 
-  <!-- ==================== 3. PENGATURAN DADU CHAOS ==================== -->
-  <section id="screen-chaos" class="screen">
-    <div class="sheet">
-      <h2 class="sheet-title">Peluang Dadu Chaos</h2>
-      <p class="sheet-sub">Atur sendiri peluang tiap sisi dadu spesial.</p>
+  <!-- ============================================================
+       SCREEN 3 — PENGATURAN PROBABILITAS DADU (khusus Ludo Chaos)
+       ============================================================ -->
+  <section id="screen-prob" class="screen">
+    <div class="panel prob-panel">
+      <h2 class="panel-title">Pengaturan Dadu Chaos</h2>
+      <p class="panel-sub">Atur peluang kemunculan tiap sisi dadu.</p>
 
-      <div class="prob-list" id="prob-list"></div>
-
-      <div class="prob-summary">
-        <span>Normal 1–6: <b id="prob-normal">75%</b></span>
-        <span>Total spesial: <b id="prob-special">25%</b></span>
+      <div class="preset-tabs">
+        <button class="preset-tab is-on" data-preset="default">DEFAULT</button>
+        <button class="preset-tab" data-preset="custom">CUSTOM</button>
       </div>
-      <p class="prob-warn" id="prob-warn" hidden>Total spesial tidak boleh lebih dari 100%.</p>
 
-      <div class="prob-legend" id="prob-legend"></div>
+      <!-- ringkasan peluang, selalu tampil -->
+      <ul class="prob-summary" id="prob-summary"></ul>
 
-      <div class="sheet-actions">
-        <button class="btn-ghost" id="chaos-back">Kembali</button>
-        <button class="btn-primary" id="chaos-next">Lanjutkan</button>
+      <!-- panel custom -->
+      <div class="prob-custom" id="prob-custom" hidden>
+        <h3 class="prob-h3">Sisi Spesial</h3>
+        <div class="slider-row" data-key="x2">
+          <span class="sl-icon">☁️</span><span class="sl-name">Dadu x2</span>
+          <input type="range" min="0" max="40" step="1" data-key="x2">
+          <span class="sl-val" data-val="x2">10%</span>
+        </div>
+        <div class="slider-row" data-key="attack">
+          <span class="sl-icon">🎯</span><span class="sl-name">Dadu Attack</span>
+          <input type="range" min="0" max="40" step="1" data-key="attack">
+          <span class="sl-val" data-val="attack">3%</span>
+        </div>
+        <div class="slider-row" data-key="shield">
+          <span class="sl-icon">🛡️</span><span class="sl-name">Dadu Shield</span>
+          <input type="range" min="0" max="40" step="1" data-key="shield">
+          <span class="sl-val" data-val="shield">5%</span>
+        </div>
+        <div class="slider-row" data-key="angel">
+          <span class="sl-icon">👼</span><span class="sl-name">Dadu Angel</span>
+          <input type="range" min="0" max="40" step="1" data-key="angel">
+          <span class="sl-val" data-val="angel">3%</span>
+        </div>
+
+        <p class="prob-note" id="prob-note">Sisa peluang menjadi dadu normal.</p>
+
+        <h3 class="prob-h3">Probabilitas Angka</h3>
+        <p class="prob-hint">Bobot tiap mata dadu pada sisi normal maupun sisi x2.</p>
+        <div class="num-grid" id="num-grid"></div>
+
+        <button class="link-btn" id="btn-prob-reset">↺ kembalikan ke default</button>
+      </div>
+
+      <div class="setup-actions">
+        <button class="link-btn" id="btn-prob-back">← mode</button>
+        <button class="primary-btn" id="btn-prob-next">LANJUT →</button>
       </div>
     </div>
   </section>
 
-  <!-- ==================== 4. SETUP PEMAIN ==================== -->
+  <!-- ============================================================
+       SCREEN 4 — PLAYER SETUP
+       ============================================================ -->
   <section id="screen-setup" class="screen">
-    <div class="sheet">
-      <h2 class="sheet-title">Susun Pasukan</h2>
-      <p class="sheet-sub" id="setup-mode-label">Ludo Classic</p>
+    <div class="panel setup-panel">
+      <h2 class="panel-title">Susun Pasukan</h2>
+      <p class="panel-sub" id="setup-mode-label">Ludo Classic</p>
 
-      <div class="slot-list" id="slot-list"></div>
+      <div class="setup-grid">
+        <div class="slot-card slot-red" data-color="red">
+          <i class="slot-avatar piece-art piece-knight"></i>
+          <div class="slot-info"><strong>Knight</strong><small>Base Kerajaan</small></div>
+          <button class="slot-toggle" data-color="red" data-state="human">HUMAN</button>
+        </div>
 
-      <div class="sheet-actions">
-        <button class="btn-ghost" id="setup-back">Kembali</button>
-        <button class="btn-primary" id="setup-start">Mulai</button>
-      </div>
-    </div>
-  </section>
+        <div class="slot-card slot-green" data-color="green">
+          <i class="slot-avatar piece-art piece-elf"></i>
+          <div class="slot-info"><strong>Elf</strong><small>Base Hutan</small></div>
+          <button class="slot-toggle" data-color="green" data-state="bot">BOT</button>
+        </div>
 
-  <!-- ==================== 5. GAME ==================== -->
-  <section id="screen-game" class="screen screen-game">
+        <div class="slot-card slot-blue" data-color="blue">
+          <i class="slot-avatar piece-art piece-witch"></i>
+          <div class="slot-info"><strong>Witch</strong><small>Base Langit</small></div>
+          <button class="slot-toggle" data-color="blue" data-state="bot">BOT</button>
+        </div>
 
-    <header class="game-head">
-      <h1 id="game-title">LUDO CHAOS (CUSTOM)</h1>
-      <button class="hamburger" id="btn-menu" aria-label="Menu">☰</button>
-    </header>
-
-    <div class="arena">
-      <div class="pcard-row">
-        <div class="pcard" data-color="red"></div>
-        <div class="pcard" data-color="green"></div>
-      </div>
-
-      <div class="board-wrap">
-        <div id="board" class="board">
-          <div class="board-grid" id="board-grid"></div>
-
-          <div class="yard" data-color="red"><i></i></div>
-          <div class="yard" data-color="green"><i></i></div>
-          <div class="yard" data-color="blue"><i></i></div>
-          <div class="yard" data-color="yellow"><i></i></div>
-
-          <div class="center-zone"><span class="center-star">★</span></div>
-
-          <div class="piece-layer" id="piece-layer"></div>
-          <div class="fx-layer" id="fx-layer"></div>
+        <div class="slot-card slot-yellow" data-color="yellow">
+          <i class="slot-avatar piece-art piece-dragon"></i>
+          <div class="slot-info"><strong>Dragon</strong><small>Base Pegunungan</small></div>
+          <button class="slot-toggle" data-color="yellow" data-state="disable">DISABLE</button>
         </div>
       </div>
 
-      <div class="pcard-row">
-        <div class="pcard" data-color="blue"></div>
-        <div class="pcard" data-color="yellow"></div>
+      <p class="setup-hint">Ketuk tombol untuk memutar: <b>HUMAN → BOT → DISABLE</b> · minimal 2 pemain aktif.</p>
+
+      <div class="setup-actions">
+        <button class="link-btn" id="btn-setup-back">← kembali</button>
+        <button class="primary-btn" id="btn-start-game">MULAI ⚔️</button>
       </div>
     </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN 5 — GAME
+       ============================================================ -->
+  <section id="screen-game" class="screen screen-game">
+
+    <header class="hud-top">
+      <button class="icon-btn" id="btn-quit" title="Kembali ke menu">⏻</button>
+      <div class="turn-banner" id="turn-banner">
+        <i class="turn-avatar piece-art" id="turn-avatar"></i>
+        <span class="turn-text">
+          <strong id="turn-name">Knight</strong>
+          <small id="turn-role">Giliran kamu</small>
+        </span>
+      </div>
+      <button class="icon-btn" id="btn-sound" title="Suara" data-on="true">🔊</button>
+    </header>
+
+    <main class="game-body">
+
+      <!-- panggung: 4 dadu mengelilingi papan (2 atas, 2 bawah) -->
+      <div class="stage">
+
+        <div class="pod pod-tl" data-color="red">
+          <div class="pod-head">
+            <i class="pod-avatar piece-art piece-knight"></i>
+            <span class="pod-name">Knight</span>
+          </div>
+          <button class="die" data-color="red" title="Lempar dadu">
+            <span class="die-pips"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="die-special"></span>
+          </button>
+        </div>
+
+        <div class="pod pod-tr" data-color="green">
+          <div class="pod-head">
+            <i class="pod-avatar piece-art piece-elf"></i>
+            <span class="pod-name">Elf</span>
+          </div>
+          <button class="die" data-color="green" title="Lempar dadu">
+            <span class="die-pips"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="die-special"></span>
+          </button>
+        </div>
+
+        <div class="board-wrap">
+          <div id="board" class="board">
+            <div class="board-grid" id="board-grid"></div>
+
+            <div class="yard yard-red"    data-color="red"><div class="yard-inner"></div></div>
+            <div class="yard yard-green"  data-color="green"><div class="yard-inner"></div></div>
+            <div class="yard yard-blue"   data-color="blue"><div class="yard-inner"></div></div>
+            <div class="yard yard-yellow" data-color="yellow"><div class="yard-inner"></div></div>
+
+            <div class="center-zone">
+              <div class="center-trophy">🏆</div>
+            </div>
+
+            <div class="piece-layer" id="piece-layer"></div>
+            <div class="fx-layer" id="fx-layer"></div>
+          </div>
+        </div>
+
+        <div class="pod pod-bl" data-color="blue">
+          <div class="pod-head">
+            <i class="pod-avatar piece-art piece-witch"></i>
+            <span class="pod-name">Witch</span>
+          </div>
+          <button class="die" data-color="blue" title="Lempar dadu">
+            <span class="die-pips"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="die-special"></span>
+          </button>
+        </div>
+
+        <div class="pod pod-br" data-color="yellow">
+          <div class="pod-head">
+            <i class="pod-avatar piece-art piece-dragon"></i>
+            <span class="pod-name">Dragon</span>
+          </div>
+          <button class="die" data-color="yellow" title="Lempar dadu">
+            <span class="die-pips"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="die-special"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ---------- SIDE PANEL ---------- -->
+      <aside class="side-panel">
+        <div class="control-box">
+          <button class="primary-btn roll-btn" id="btn-roll">LEMPAR DADU</button>
+          <p class="action-hint" id="action-hint">Tekan tombol untuk melempar dadu.</p>
+        </div>
+
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <div class="chaos-legend" id="chaos-legend" hidden>
+          <h3>Peluang Dadu</h3>
+          <ul id="chaos-legend-list"></ul>
+        </div>
+
+        <div class="log-box">
+          <h3>Catatan Pertempuran</h3>
+          <ul class="log-list" id="log-list"></ul>
+        </div>
+      </aside>
+    </main>
 
     <div class="toast" id="toast" hidden></div>
 
-    <!-- menu dalam permainan -->
-    <div class="drawer" id="game-menu" hidden>
-      <div class="drawer-card">
-        <button class="drawer-item" id="mi-sound">🔊 Suara: Aktif</button>
-        <button class="drawer-item" id="mi-restart">🔄 Ulang Permainan</button>
-        <button class="drawer-item" id="mi-home">🏠 Menu Utama</button>
-        <button class="drawer-item drawer-close" id="mi-close">Tutup</button>
-      </div>
-    </div>
-
-    <!-- kemenangan -->
     <div class="modal" id="modal-win" hidden>
       <div class="modal-card">
-        <div class="win-figure" id="win-figure"></div>
+        <div class="win-crown">👑</div>
+        <i class="win-avatar piece-art" id="win-avatar"></i>
         <h2 id="win-title">Knight Menang!</h2>
-        <div class="sheet-actions">
-          <button class="btn-ghost" id="btn-to-menu">Menu Utama</button>
-          <button class="btn-primary" id="btn-rematch">Main Lagi</button>
+        <p id="win-sub">Base Kerajaan menguasai singgasana.</p>
+        <div class="modal-actions">
+          <button class="primary-btn" id="btn-rematch">MAIN LAGI</button>
+          <button class="link-btn" id="btn-to-menu">menu utama</button>
         </div>
       </div>
     </div>
