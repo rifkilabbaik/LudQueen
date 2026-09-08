@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2b1d3a">
+<title>LUDQueen 👑</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============================================================
+       SCREEN 1 — TITLE
+       ============================================================ -->
+  <section id="screen-title" class="screen is-active">
+    <div class="title-stars" aria-hidden="true"></div>
+    <div class="title-wrap">
+      <div class="title-crown">👑</div>
+      <h1 class="game-title">
+        <span class="tt tt-a">LUD</span><span class="tt tt-b">Queen</span>
+      </h1>
+      <p class="title-sub">⚔️ 🏹 🪄 🔥 &nbsp;·&nbsp; Medieval Ludo Battle</p>
+      <p id="tap-to-play" class="tap-to-play">tap to play</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN 2 — MAIN MENU
+       ============================================================ -->
+  <section id="screen-menu" class="screen">
+    <div class="panel menu-panel">
+      <h2 class="panel-title">Pilih Mode</h2>
+
+      <button class="mode-btn mode-classic" data-mode="classic">
+        <span class="mode-icon">🎲</span>
+        <span class="mode-text">
+          <strong>Ludo Classic</strong>
+          <small>Aturan ludo standar · 2–4 pemain</small>
+        </span>
+      </button>
+
+      <button class="mode-btn mode-chaos" data-mode="chaos">
+        <span class="mode-icon">🌀</span>
+        <span class="mode-text">
+          <strong>Ludo Chaos</strong>
+          <small>Dadu Gacha: x2 · Attack · Shield · Angel</small>
+        </span>
+      </button>
+
+      <button class="link-btn" id="btn-menu-back">← kembali</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN 3 — PLAYER SETUP
+       ============================================================ -->
+  <section id="screen-setup" class="screen">
+    <div class="panel setup-panel">
+      <h2 class="panel-title">Susun Pasukan</h2>
+      <p class="panel-sub" id="setup-mode-label">Ludo Classic</p>
+
+      <div class="setup-grid">
+        <!-- RED / KNIGHT -->
+        <div class="slot-card slot-red" data-color="red">
+          <div class="slot-avatar piece-art piece-knight">⚔️</div>
+          <div class="slot-info">
+            <strong>Knight</strong>
+            <small>Base Kerajaan</small>
+          </div>
+          <button class="slot-toggle" data-color="red" data-state="human">HUMAN</button>
+        </div>
+
+        <!-- GREEN / ELF -->
+        <div class="slot-card slot-green" data-color="green">
+          <div class="slot-avatar piece-art piece-elf">🏹</div>
+          <div class="slot-info">
+            <strong>Elf</strong>
+            <small>Base Hutan</small>
+          </div>
+          <button class="slot-toggle" data-color="green" data-state="bot">BOT</button>
+        </div>
+
+        <!-- BLUE / WITCH -->
+        <div class="slot-card slot-blue" data-color="blue">
+          <div class="slot-avatar piece-art piece-witch">🪄</div>
+          <div class="slot-info">
+            <strong>Witch</strong>
+            <small>Base Langit</small>
+          </div>
+          <button class="slot-toggle" data-color="blue" data-state="bot">BOT</button>
+        </div>
+
+        <!-- YELLOW / DRAGON -->
+        <div class="slot-card slot-yellow" data-color="yellow">
+          <div class="slot-avatar piece-art piece-dragon">🔥</div>
+          <div class="slot-info">
+            <strong>Dragon</strong>
+            <small>Base Pegunungan</small>
+          </div>
+          <button class="slot-toggle" data-color="yellow" data-state="disable">DISABLE</button>
+        </div>
+      </div>
+
+      <p class="setup-hint">Ketuk tombol untuk memutar: <b>HUMAN → BOT → DISABLE</b> · minimal 2 pemain aktif.</p>
+
+      <div class="setup-actions">
+        <button class="link-btn" id="btn-setup-back">← mode</button>
+        <button class="primary-btn" id="btn-start-game">MULAI ⚔️</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN 4 — GAME
+       ============================================================ -->
+  <section id="screen-game" class="screen screen-game">
+
+    <header class="hud-top">
+      <button class="icon-btn" id="btn-quit" title="Kembali ke menu">⏻</button>
+      <div class="turn-banner" id="turn-banner">
+        <span class="turn-avatar piece-art" id="turn-avatar">⚔️</span>
+        <span class="turn-text">
+          <strong id="turn-name">Knight</strong>
+          <small id="turn-role">Giliran kamu</small>
+        </span>
+      </div>
+      <button class="icon-btn" id="btn-sound" title="Suara" data-on="true">🔊</button>
+    </header>
+
+    <main class="game-body">
+
+      <!-- ---------- BOARD ---------- -->
+      <div class="board-wrap">
+        <div id="board" class="board">
+          <div class="board-grid" id="board-grid"></div>
+
+          <!-- markas / yards -->
+          <div class="yard yard-red"    data-color="red"><div class="yard-inner"></div></div>
+          <div class="yard yard-green"  data-color="green"><div class="yard-inner"></div></div>
+          <div class="yard yard-blue"   data-color="blue"><div class="yard-inner"></div></div>
+          <div class="yard yard-yellow" data-color="yellow"><div class="yard-inner"></div></div>
+
+          <!-- pusat / finish -->
+          <div class="center-zone">
+            <div class="center-tri tri-red"></div>
+            <div class="center-tri tri-green"></div>
+            <div class="center-tri tri-yellow"></div>
+            <div class="center-tri tri-blue"></div>
+            <div class="center-trophy">🏆</div>
+          </div>
+
+          <div class="piece-layer" id="piece-layer"></div>
+          <div class="fx-layer" id="fx-layer"></div>
+
+          <div class="board-overlay" id="board-overlay"></div>
+        </div>
+      </div>
+
+      <!-- ---------- SIDE PANEL ---------- -->
+      <aside class="side-panel">
+
+        <div class="dice-tray">
+          <div class="dice-shell">
+            <div class="dice" id="dice">
+              <span class="dice-face" id="dice-face">🎲</span>
+            </div>
+          </div>
+          <button class="primary-btn roll-btn" id="btn-roll">LEMPAR DADU</button>
+          <p class="action-hint" id="action-hint">Tekan tombol untuk melempar dadu.</p>
+        </div>
+
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <div class="chaos-legend" id="chaos-legend" hidden>
+          <h3>Dadu Chaos</h3>
+          <ul id="chaos-legend-list"></ul>
+        </div>
+
+        <div class="log-box">
+          <h3>Catatan Pertempuran</h3>
+          <ul class="log-list" id="log-list"></ul>
+        </div>
+      </aside>
+    </main>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <!-- overlay kemenangan -->
+    <div class="modal" id="modal-win" hidden>
+      <div class="modal-card">
+        <div class="win-crown">👑</div>
+        <h2 id="win-title">Knight Menang!</h2>
+        <p id="win-sub">Base Kerajaan menguasai singgasana.</p>
+        <div class="modal-actions">
+          <button class="primary-btn" id="btn-rematch">MAIN LAGI</button>
+          <button class="link-btn" id="btn-to-menu">menu utama</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
