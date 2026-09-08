@@ -1,7 +1,8 @@
 # LUDQueen 👑
 
-Game Ludo bertema **Medieval Pixel Art** — HTML + CSS + Vanilla JavaScript murni.
-Tanpa React, tanpa Phaser, tanpa build step. Cukup buka `index.html`.
+Game Ludo dengan bidak berwujud karakter (Knight · Elf · Witch · Dragon) —
+HTML + CSS + Vanilla JavaScript murni. Tanpa React, tanpa Phaser, tanpa build
+step. Cukup buka `index.html`.
 
 ```
 index.html   struktur UI, papan 15x15, layer bidak & efek
@@ -26,20 +27,26 @@ python3 -m http.server 8080
 
 1. **Title Screen** — judul "LUDQueen 👑" + teks `tap to play` berkedip.
 2. **Main Menu** — dua mode: **Ludo Classic** dan **Ludo Chaos**.
-3. **Player Setup** — 4 slot sudut, masing-masing punya toggle
+3. **Peluang Dadu Chaos** *(khusus mode Chaos)* — atur sendiri peluang tiap sisi
+   dadu spesial. Sisa dari 100% otomatis menjadi dadu normal 1–6.
+4. **Player Setup** — 4 slot, masing-masing punya toggle
    `HUMAN → BOT → DISABLE`. Minimal 2 slot aktif untuk mulai.
-4. **Game** — papan, tray dadu, papan skor, dan catatan pertempuran.
+5. **Game** — papan dengan kartu pemain di 4 sudut. Dadu muncul di dalam kartu
+   pemain yang sedang mendapat giliran; ketuk untuk melempar. Layar sengaja
+   dibuat bersih: satu-satunya teks berjalan adalah notifikasi.
 
 ---
 
 ## Faksi
 
-| Warna | Faksi | Markas | Serangan saat menangkap | Proyektil Dadu Attack |
+| Warna | Faksi | Markas | Serangan saat menangkap | Proyektil Dadu Pistol |
 |---|---|---|---|---|
-| Merah | Knight ⚔️ | Base Kerajaan | Tebasan Pedang | **Canon** 💣 |
-| Hijau | Elf 🏹 | Base Hutan | Bidikan Panah | **Hujan Panah** 🏹 |
-| Biru | Witch 🪄 | Base Langit | Sihir Terkutuk | **Hujan Ramuan Sihir** 🧪 |
-| Kuning | Dragon 🔥 | Base Pegunungan | Napas Api | **Hujan Api** 🔥 |
+| Merah | Knight | Base Kerajaan | Tebasan Pedang | **Canon** 💣 |
+| Hijau | Elf | Base Hutan | Bidikan Panah | **Hujan Panah** 🏹 |
+| Biru | Witch | Base Langit | Sihir Terkutuk | **Hujan Ramuan Sihir** 🧪 |
+| Kuning | Dragon | Base Pegunungan | Napas Api | **Hujan Api** 🔥 |
+
+Tiap bidak digambar sebagai karakter lewat SVG di `CHARACTER_SVG` (`script.js`).
 
 ---
 
@@ -54,31 +61,45 @@ Home Finish (langkah harus pas, tidak boleh lebih).
 
 ## Ludo Chaos
 
-Mewarisi seluruh aturan Classic, tetapi dadu biasa diganti **Dadu Gacha**:
+Mewarisi seluruh aturan Classic, tetapi dadu biasa diganti **Dadu Chaos** yang
+peluang tiap sisinya bisa diatur sendiri sebelum permainan dimulai.
 
-| Sisi | Efek |
-|---|---|
-| 🎲 **Angka 1–6** | Gerak normal |
-| ☁️ **Dadu x2** | Angka pergerakan dikali 2, bidak menaiki awan dan meluncur melintasi petak |
-| 🎯 **Dadu Attack** | Pilih bebas 1 bidak lawan di papan untuk dipulangkan; proyektil ditembakkan dari markas penyerang |
-| 🛡️ **Dadu Shield** | Perisai kebal **1 kali pakai** |
-| 👼 **Dadu Angel** | Seluruh bidak di markas langsung keluar ke petak start + **1 giliran ekstra** |
+| Sisi | Efek | Peluang bawaan |
+|---|---|---|
+| **Mundur (-1..-6)** | Bidak mundur 1–6 langkah (tidak boleh melewati petak start) | 7,5% |
+| **Double (7..12)** | Maju 7–12 langkah, bidak menaiki awan dan meluncur melintasi petak | 12% |
+| **Perisai** | Lindungi 1 bidak, kebal **1 kali pakai** | 3% |
+| **Bom** | Bidak **terjauh di papan meledak — milik siapa pun, termasuk milikmu sendiri** | 1% |
+| **Pistol** | Pilih bebas 1 bidak lawan untuk dipulangkan; proyektil ditembakkan dari markas penyerang | 1% |
+| **Malaikat** | Seluruh bidak di markas keluar ke petak start + 1 giliran ekstra | 0,5% |
+| **Normal 1–6** | Gerak biasa | sisa dari 100% |
+
+**Aturan pembuka:** selama pemain **belum punya satu pun bidak di luar markas**,
+dadunya dikunci ke angka normal 1–6 saja — sisi spesial tidak akan keluar.
 
 **Perisai hilang otomatis jika:**
-(a) terkena serangan, (b) bidak tersebut menangkap bidak lawan, atau
+(a) terkena serangan (Pistol, Bom, atau ditangkap lawan),
+(b) bidak tersebut menangkap bidak lawan, atau
 (c) bidak tersebut mencapai petak Home Finish.
 
-### Mengubah probabilitas dadu
+### Mengubah peluang dadu
 
-Semua di `script.js`, bagian `CHAOS_DICE_CONFIG`. Bobot bebas, engine
-menormalkannya sendiri menjadi 100% dan panel legenda di layar ikut menyesuaikan.
+Cara termudah lewat layar **Peluang Dadu Chaos** di dalam game — nilai bisa
+diketik dengan koma maupun titik (`7,5` atau `7.5`), ringkasan "Normal 1–6" dan
+"Total spesial" ikut berubah langsung, dan tombol Lanjutkan terkunci bila total
+melebihi 100%.
+
+Untuk mengubah nilai bawaannya, sunting `def` pada `CHAOS_FACES` di `script.js`:
 
 ```js
-const CHAOS_DICE_CONFIG = {
-  faceWeight: { number: 60, x2: 14, attack: 11, shield: 10, angel: 5 },
-  numberWeight:   { 1:10, 2:10, 3:10, 4:10, 5:10, 6:14 },
-  x2NumberWeight: { 1:10, 2:12, 3:14, 4:12, 5:8, 6:6 },
-};
+const CHAOS_FACES = [
+  { key:'mundur',   name:'Mundur (-1..-6)', ..., def:7.5 },
+  { key:'double',   name:'Double (7..12)',  ..., def:12  },
+  { key:'perisai',  name:'Perisai',         ..., def:3   },
+  { key:'bom',      name:'Bom',             ..., def:1   },
+  { key:'pistol',   name:'Pistol',          ..., def:1   },
+  { key:'malaikat', name:'Malaikat',        ..., def:0.5 },
+];
 ```
 
 ---
@@ -105,33 +126,42 @@ p = 56        HOME FINISH
 
 ---
 
-## Mengganti placeholder dengan pixel art
+## Mengganti karakter dengan sprite sendiri
 
-Setiap bidak dirender sebagai `.piece-art.piece-<faksi>` berisi emoji
-placeholder. Untuk memasang sprite sungguhan cukup timpa CSS-nya:
+Karakter tiap faksi didefinisikan sebagai SVG di `CHARACTER_SVG` (`script.js`).
+Ada dua cara menggantinya.
+
+**1. Ganti langsung SVG-nya** — sunting isi `CHARACTER_SVG.knight`, `.elf`,
+`.witch`, `.dragon`.
+
+**2. Pakai file gambar (mis. pixel art)** — timpa lewat CSS:
 
 ```css
-.piece-knight { background-image: url('assets/knight.png'); }
-.piece-elf    { background-image: url('assets/elf.png'); }
-.piece-witch  { background-image: url('assets/witch.png'); }
-.piece-dragon { background-image: url('assets/dragon.png'); }
+.piece-knight .sprite { background-image: url('assets/knight.png'); }
+.piece-elf    .sprite { background-image: url('assets/elf.png'); }
+.piece-witch  .sprite { background-image: url('assets/witch.png'); }
+.piece-dragon .sprite { background-image: url('assets/dragon.png'); }
 
-/* sembunyikan emoji placeholder */
-.piece-art.has-sprite { font-size: 0 !important; }
+.piece .sprite {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  image-rendering: pixelated;   /* untuk pixel art */
+}
+.piece .sprite svg { display: none; }   /* sembunyikan SVG bawaan */
 ```
 
-lalu tambahkan class `has-sprite` pada elemen `.piece-inner` (atau set
-`.piece-emoji { display:none }`). Petak papan (`.cell-path`, `.cell-home`,
-`.cell-start`, `.yard-inner`, `.center-zone`) juga siap ditimpa
-`background-image` dengan `image-rendering: pixelated` yang sudah aktif.
+Petak papan (`.cell-path`, `.cell-home`, `.yard`, `.center-zone`) juga siap
+ditimpa `background-image`.
 
 ---
 
 ## Kontrol
 
-- **Klik / tap** bidak yang berkedip untuk memilih langkah, target serangan, atau penerima perisai.
+- **Ketuk dadu** di kartu pemain yang sedang giliran untuk melempar.
+- **Ketuk bidak** yang berkedip untuk memilih langkah, target Pistol, atau penerima Perisai.
 - **Spasi** — lempar dadu.
-- 🔊 — matikan/hidupkan efek suara (Web Audio API, tanpa file audio eksternal).
+- **☰** — menu: suara on/off, ulang permainan, kembali ke menu utama.
 
 ---
 
